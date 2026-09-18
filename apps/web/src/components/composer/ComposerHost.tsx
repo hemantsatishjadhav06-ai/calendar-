@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useQueryClient } from '@tanstack/react-query';
-import { Sparkles, LayoutTemplate, StickyNote, X as CloseIcon, ChevronDown, Hash, Repeat2 } from 'lucide-react';
+import { Sparkles, LayoutTemplate, StickyNote, X as CloseIcon, ChevronDown, Hash, Repeat2, Repeat } from 'lucide-react';
 import { rulesFor, validateTarget, type Issue } from '@cadence/network-rules';
 import { useComposer } from './store';
 import { useChannels, useMe, useTags } from '@/lib/hooks';
@@ -45,7 +45,7 @@ export function ComposerHost() {
   const buildInput = () => ({
     baseText: s.baseText, baseMedia: s.baseMedia.map(cleanMedia), linkPreview: s.linkPreview && !s.linkPreview.removed ? { url: s.linkPreview.url, title: s.linkPreview.title, description: s.linkPreview.description, imageAssetId: s.linkPreview.imageAssetId } : null,
     targets: selected.map(c => { const t = s.targets[c.id]; return { channelId: c.id, text: t.customized ? t.text : null, media: t.customized ? t.media.map(cleanMedia) : null, thread: t.thread.length ? t.thread.map(p => ({ text: p.text, media: p.media.map(cleanMedia) })) : null, firstComment: t.firstComment || null, metadata: t.metadata, schedulingType: t.schedulingType }; }),
-    mode: s.mode, dueAt: s.mode === 'CUSTOM' ? s.dueAt : null, tagIds: s.tagIds, requestApproval: s.requestApproval || needsApproval, ideaId: s.ideaId ?? null, templateId: s.templateId ?? null, aiAssisted: s.aiAssisted, autoRepost: s.autoRepost,
+    mode: s.mode, dueAt: s.mode === 'CUSTOM' ? s.dueAt : null, tagIds: s.tagIds, requestApproval: s.requestApproval || needsApproval, ideaId: s.ideaId ?? null, templateId: s.templateId ?? null, aiAssisted: s.aiAssisted, autoRepost: s.autoRepost, recurrence: s.recurrence,
   });
 
   async function submit(mode: typeof s.mode, dueAt?: string | null) {
@@ -139,6 +139,13 @@ export function ComposerHost() {
                 <MenuItem onSelect={() => s.setAutoRepost('ALWAYS')}>{s.autoRepost === 'ALWAYS' ? '✓ ' : ''}Always — repost after 48h</MenuItem>
               </Menu>
             )}
+            <Menu trigger={<button className="btn ghost sm" title="Repeat this post on a schedule (applies when you pick a date & time)"><Repeat size={14} /> {s.recurrence ? `Repeats ${s.recurrence.freq.toLowerCase()} ×${s.recurrence.count}` : 'Repeat'}</button>}>
+              <MenuItem onSelect={() => s.setRecurrence(null)}>{!s.recurrence ? '✓ ' : ''}Does not repeat</MenuItem>
+              <MenuItem onSelect={() => s.setRecurrence({ freq: 'DAILY', interval: 1, count: 5 })}>Daily · 5 times</MenuItem>
+              <MenuItem onSelect={() => s.setRecurrence({ freq: 'WEEKLY', interval: 1, count: 4 })}>Weekly · 4 times</MenuItem>
+              <MenuItem onSelect={() => s.setRecurrence({ freq: 'WEEKLY', interval: 1, count: 8 })}>Weekly · 8 times</MenuItem>
+              <MenuItem onSelect={() => s.setRecurrence({ freq: 'MONTHLY', interval: 1, count: 3 })}>Monthly · 3 times</MenuItem>
+            </Menu>
             {hasErrors && <span className="subtle" style={{ color: 'var(--danger)' }}>⚠ {Object.values(issues).flat().filter(i => i.level === 'error').length} issue(s) to fix</span>}
             <span style={{ flex: 1 }} />
             <button className="btn secondary" disabled={busy} onClick={() => submit('DRAFT')}>Save as draft</button>

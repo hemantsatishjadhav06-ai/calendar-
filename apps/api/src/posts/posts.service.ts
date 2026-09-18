@@ -32,6 +32,16 @@ export interface CreatePostInput {
   templateId?: string | null;
   aiAssisted?: boolean;
   autoRepost?: 'OFF' | 'ALWAYS' | 'SMART';
+  recurrence?: { freq: 'DAILY' | 'WEEKLY' | 'MONTHLY'; interval?: number; count: number } | null;
+}
+
+/** Shift a date forward by n periods of the given frequency (month-aware). */
+function addPeriods(base: Date, freq: 'DAILY' | 'WEEKLY' | 'MONTHLY', n: number): Date {
+  const d = new Date(base);
+  if (freq === 'DAILY') d.setDate(d.getDate() + n);
+  else if (freq === 'WEEKLY') d.setDate(d.getDate() + n * 7);
+  else d.setMonth(d.getMonth() + n);
+  return d;
 }
 
 const queues = new QueuesService();
@@ -119,6 +129,21 @@ export class PostsService {
     if (input.ideaId) await this.db.idea.updateMany({ where: { id: input.ideaId }, data: { usedAt: new Date() } });
     for (const ch of channels.values()) events.publish(tenant.organizationId, { type: 'queue.changed', channelId: ch.id });
     await prismaAdmin.auditLog.create({ data: { organizationId: tenant.organizationId, actorAccountId: this.account.id, action: 'post.create', entity: 'Post', entityId: post.id, diff: { mode, channels: [...channels.keys()] } } });
+
+    // Recurrence: materialise the following occurrences up front as independent scheduled posts,
+    // shifting each time forward. Only for a fixed-time (CUSTOM) post; bounded to 12 occurrences.
+    // Stops quietly if a later occurrence trips a plan cap so we never half-spam the queue.
+    const rec = input.recurrence;
+    if (rec && mode === 'CUSTOM' && (input.dueAt || input.dueAtByChannel)) {
+      const count = Math.min(12, Math.max(2, rec.count));
+      const interval = Math.min(30, Math.max(1, rec.interval ?? 1));
+      const shiftMap = (n: number) => input.dueAtByChannel ? Object.fromEntries(Object.entries(input.dueAtByChannel).map(([k, v]) => [k, addPeriods(new Date(v as any), rec.freq, n * interval)])) : undefined;
+      for (let n = 1; n < count; n++) {
+        try {
+          await this.create({ ...input, recurrence: null, requestApproval: input.requestApproval, ideaId: null, dueAt: input.dueAt ? addPeriods(new Date(input.dueAt), rec.freq, n * interval) : null, dueAtByChannel: shiftMap(n) });
+        } catch { break; }
+      }
+    }
     return this.db.post.findUniqueOrThrow({ where: { id: post.id }, include: { targets: { include: { channel: true } }, tags: { include: { tag: true } }, approval: true } });
   }
 

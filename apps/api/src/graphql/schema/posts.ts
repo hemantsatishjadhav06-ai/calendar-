@@ -65,11 +65,13 @@ const MediaInput = builder.inputType('MediaInput', { fields: t => ({ assetId: t.
 const ThreadPartInput = builder.inputType('ThreadPartInput', { fields: t => ({ text: t.string({ required: true }), media: t.field({ type: [MediaInput] }) }) });
 const TargetInput = builder.inputType('TargetInput', { fields: t => ({ channelId: t.id({ required: true }), text: t.string(), media: t.field({ type: [MediaInput] }), thread: t.field({ type: [ThreadPartInput] }), firstComment: t.string(), metadata: t.field({ type: 'JSON' }), schedulingType: t.field({ type: SchedulingTypeEnum }) }) });
 const LinkPreviewInput = builder.inputType('LinkPreviewInput', { fields: t => ({ url: t.string({ required: true }), title: t.string(), description: t.string(), imageAssetId: t.id() }) });
+const RecurrenceFreqEnum = builder.enumType('RecurrenceFreq', { values: ['DAILY', 'WEEKLY', 'MONTHLY'] as const });
+const RecurrenceInput = builder.inputType('RecurrenceInput', { fields: t => ({ freq: t.field({ type: RecurrenceFreqEnum, required: true }), interval: t.int(), count: t.int({ required: true }) }) });
 const CreatePostInput = builder.inputType('CreatePostInput', {
   fields: t => ({
     baseText: t.string({ required: true }), baseMedia: t.field({ type: [MediaInput] }), linkPreview: t.field({ type: LinkPreviewInput }),
     targets: t.field({ type: [TargetInput], required: true }), mode: t.field({ type: ScheduleModeEnum, required: true }), dueAt: t.field({ type: 'DateTime' }), dueAtByChannel: t.field({ type: 'JSON' }),
-    tagIds: t.idList(), requestApproval: t.boolean(), ideaId: t.id(), templateId: t.id(), aiAssisted: t.boolean(), autoRepost: t.field({ type: AutoRepostEnum }),
+    tagIds: t.idList(), requestApproval: t.boolean(), ideaId: t.id(), templateId: t.id(), aiAssisted: t.boolean(), autoRepost: t.field({ type: AutoRepostEnum }), recurrence: t.field({ type: RecurrenceInput }),
   }),
 });
 const UpdatePostInput = builder.inputType('UpdatePostInput', { fields: t => ({ baseText: t.string(), baseMedia: t.field({ type: [MediaInput] }), linkPreview: t.field({ type: LinkPreviewInput }), targets: t.field({ type: [TargetInput] }), tagIds: t.idList(), mode: t.field({ type: ScheduleModeEnum }), dueAt: t.field({ type: 'DateTime' }), autoRepost: t.field({ type: AutoRepostEnum }) }) });
