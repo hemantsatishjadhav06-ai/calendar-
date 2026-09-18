@@ -16,5 +16,5 @@ spec:
       containers:
         - name: migrate
           image: "{{ .Values.image.repository }}/api:{{ .Values.image.tag }}"
-          command: ["sh", "-c", "pnpm --filter @relay/db exec prisma migrate deploy && pnpm --filter @relay/db exec node --import tsx scripts/apply-sql.ts"]
+          command: ["sh", "-c", "pnpm --filter @cadence/db exec node --import tsx scripts/apply-sql.ts"]
           envFrom: [{ secretRef: { name: {{ .Values.secretName }} } }]

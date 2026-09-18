@@ -14,8 +14,8 @@ RUN DATABASE_URL_ADMIN="postgresql://build:build@localhost:5432/build" PRISMA_EN
 # during `next build`. Railway supplies declared ARGs from the service's variables; the default is
 # this deployment's API service URL so the correct target is baked even if the build arg is absent.
 ARG API_URL=https://api-production-a2b4.up.railway.app
-RUN API_URL="${API_URL}" pnpm --filter @relay/web build
+RUN API_URL="${API_URL}" pnpm --filter @cadence/web build
 
 ENV NODE_ENV=production
 # $APP selects the service (api|worker|web|startpage|mcp); $PRELAUNCH runs first (api → DB release).
-CMD ["sh", "-c", "${PRELAUNCH:-true} && pnpm --filter @relay/${APP} start"]
+CMD ["sh", "-c", "${PRELAUNCH:-true} && pnpm --filter @cadence/${APP} start"]
