@@ -6,7 +6,7 @@ BEGIN
   FOR t IN SELECT unnest(ARRAY[
     'Organization','Membership','Channel','ChannelGroup','Post','PostTarget','Note','Tag','HashtagGroup','Template',
     'IdeaGroup','Idea','Asset','ShortLink','Report','Comment','SavedReply','SavedView','StartPage','Subscription','ApiKey','OAuthClient',
-    'Integration','FeatureFlag','AuditLog','AiUsage','SpendLedger','Notification'])
+    'Integration','FeatureFlag','AuditLog','AiUsage','SpendLedger','Notification','CalendarEvent'])
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('ALTER TABLE %I FORCE ROW LEVEL SECURITY', t);

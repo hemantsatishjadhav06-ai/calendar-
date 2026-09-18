@@ -107,6 +107,7 @@ model Organization {
   notes          Note[]
   comments       Comment[]
   notifications  Notification[]
+  calendarEvents CalendarEvent[]
 }
 
 enum OrgRole {
@@ -722,6 +723,21 @@ model NotificationPref {
   key       String
   enabled   Boolean @default(true)
   @@id([accountId, key])
+}
+
+/** Campaign / holiday / launch annotations overlaid on the publishing calendar (not posts). */
+model CalendarEvent {
+  id                 String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId     String       @db.Uuid
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title              String
+  startDate          DateTime     @db.Date
+  endDate            DateTime     @db.Date
+  color              String       @default("#F79009")
+  note               String?
+  createdByAccountId String       @db.Uuid
+  createdAt          DateTime     @default(now())
+  @@index([organizationId, startDate])
 }
 
 /** In-app notification shown in the top-bar bell (distinct from NotificationJob = notify-me publish reminders). */

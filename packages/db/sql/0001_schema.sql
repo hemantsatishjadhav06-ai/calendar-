@@ -514,6 +514,19 @@ CREATE TABLE IF NOT EXISTS "NotificationPref" (
   "enabled" boolean NOT NULL DEFAULT true,
   PRIMARY KEY ("accountId", "key")
 );
+CREATE TABLE IF NOT EXISTS "CalendarEvent" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
+  "organizationId" uuid NOT NULL,
+  "title" text NOT NULL,
+  "startDate" date NOT NULL,
+  "endDate" date NOT NULL,
+  "color" text NOT NULL DEFAULT '#F79009',
+  "note" text,
+  "createdByAccountId" uuid NOT NULL,
+  "createdAt" timestamp(3) NOT NULL DEFAULT now(),
+  PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "CalendarEvent_organizationId_startDate_idx" ON "CalendarEvent" ("organizationId", "startDate");
 CREATE TABLE IF NOT EXISTS "Notification" (
   "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
   "organizationId" uuid NOT NULL,
