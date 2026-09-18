@@ -1,4 +1,5 @@
 import type { Network } from '@relay/db';
+import { env } from '@relay/config';
 import type { SocialConnector } from './types.js';
 import { facebook } from './meta/facebook.js';
 import { instagram } from './meta/instagram.js';
@@ -30,6 +31,30 @@ export function getConnector(network: Network): SocialConnector {
   return c;
 }
 export const allNetworks = Object.keys(registry) as Network[];
+
+/**
+ * Whether the PRODUCT-level app credentials for a network are configured (Buffer-style: one app per
+ * network, shared by every organization). When true the connect flow works and every client can
+ * self-connect by clicking "Allow"; when false the connect screen shows the network as not-yet-set-up
+ * instead of erroring. Bluesky and Mastodon need no product app (they self-register per user/instance).
+ */
+const CREDENTIALS: Record<Network, () => boolean> = {
+  FACEBOOK: () => !!(env.META_APP_ID && env.META_APP_SECRET),
+  INSTAGRAM: () => !!(env.IG_APP_ID && env.IG_APP_SECRET),
+  THREADS: () => !!(env.THREADS_APP_ID && env.THREADS_APP_SECRET),
+  X: () => !!(env.X_CLIENT_ID && env.X_CLIENT_SECRET),
+  LINKEDIN: () => !!(env.LI_CLIENT_ID && env.LI_CLIENT_SECRET),
+  TIKTOK: () => !!(env.TT_CLIENT_KEY && env.TT_CLIENT_SECRET),
+  YOUTUBE: () => !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+  GOOGLE_BUSINESS: () => !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+  PINTEREST: () => !!(env.PIN_APP_ID && env.PIN_APP_SECRET),
+  BLUESKY: () => true,
+  MASTODON: () => true,
+  START_PAGE: () => true,
+};
+export function networkConfigured(network: Network): boolean {
+  return (CREDENTIALS[network] ?? (() => false))();
+}
 
 /** Networks the connect screen offers, with display metadata. */
 export const NETWORK_CATALOG: { network: Network; label: string; needsHint?: 'server' | 'handle'; note?: string }[] = [

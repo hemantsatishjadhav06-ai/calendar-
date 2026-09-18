@@ -2,7 +2,7 @@ import { builder } from '../builder.js';
 import { NetworkEnum, ChannelStatusEnum } from './enums.js';
 import { prismaAdmin } from '@relay/db';
 import { QueueOps, assertCan, DomainError, groupSlotsByDay, nextFreeSlots } from '@relay/domain';
-import { getConnector, NETWORK_CATALOG } from '@relay/connectors';
+import { getConnector, NETWORK_CATALOG, networkConfigured } from '@relay/connectors';
 import { tokenVault } from '@relay/token-vault';
 import { publicRulesSummary } from '@relay/network-rules';
 import { events } from '../../events/events.bus.js';
@@ -40,14 +40,14 @@ builder.prismaObject('PostingSlot', { fields: t => ({ id: t.exposeID('id'), week
 builder.prismaObject('ChannelGroup', { fields: t => ({ id: t.exposeID('id'), name: t.exposeString('name'), channelIds: t.field({ type: ['ID'], resolve: async (g, _a, ctx) => (await ctx.db!.channelGroupMember.findMany({ where: { groupId: g.id } })).map(m => m.channelId) }) }) });
 builder.prismaObject('ChannelGroupMember', { fields: t => ({ groupId: t.exposeID('groupId'), channelId: t.exposeID('channelId') }) });
 
-const NetworkInfo = builder.objectRef<{ network: string; label: string; needsHint?: string; note?: string; rules: any }>('NetworkInfo').implement({
-  fields: t => ({ network: t.exposeString('network'), label: t.exposeString('label'), needsHint: t.exposeString('needsHint', { nullable: true }), note: t.exposeString('note', { nullable: true }), rules: t.expose('rules', { type: 'JSON' }) }),
+const NetworkInfo = builder.objectRef<{ network: string; label: string; needsHint?: string; note?: string; configured: boolean; rules: any }>('NetworkInfo').implement({
+  fields: t => ({ network: t.exposeString('network'), label: t.exposeString('label'), needsHint: t.exposeString('needsHint', { nullable: true }), note: t.exposeString('note', { nullable: true }), configured: t.exposeBoolean('configured'), rules: t.expose('rules', { type: 'JSON' }) }),
 });
 
 builder.queryFields(t => ({
   channels: t.prismaField({ type: ['Channel'], authScopes: { user: true }, resolve: (q, _r, _a, ctx) => ctx.db!.channel.findMany({ ...q, where: { organizationId: ctx.tenant!.organizationId, deletedAt: null }, orderBy: [{ sortOrder: 'asc' }, { connectedAt: 'asc' }] }) }),
   channel: t.prismaField({ type: 'Channel', authScopes: { user: true }, args: { id: t.arg.id({ required: true }) }, resolve: (q, _r, args, ctx) => ctx.db!.channel.findFirstOrThrow({ ...q, where: { id: String(args.id), organizationId: ctx.tenant!.organizationId, deletedAt: null } }) }),
-  networks: t.field({ type: [NetworkInfo], resolve: () => { const rules = publicRulesSummary(); return NETWORK_CATALOG.map(n => ({ ...n, rules: rules.find(r => r.network === n.network) })); } }),
+  networks: t.field({ type: [NetworkInfo], resolve: () => { const rules = publicRulesSummary(); return NETWORK_CATALOG.map(n => ({ ...n, configured: networkConfigured(n.network), rules: rules.find(r => r.network === n.network) })); } }),
   channelLookup: t.field({
     type: 'JSON', authScopes: { user: true }, args: { channelId: t.arg.id({ required: true }), what: t.arg.string({ required: true }), args: t.arg({ type: 'JSON' }) },
     resolve: async (_r, args, ctx) => {

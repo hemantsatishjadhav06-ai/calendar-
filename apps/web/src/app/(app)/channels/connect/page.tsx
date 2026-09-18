@@ -14,12 +14,22 @@ export default function ConnectPage() {
       <main className="content" id="main">
         <p className="subtle">You'll be sent to the network to sign in and grant access. Accept all permissions — each one maps to a feature (publishing, analytics, comments).</p>
         <div className="chan-grid">
-          {(networks.data?.networks ?? []).map((n: any) => (
-            <button key={n.network} className="net-tile" onClick={() => (n.needsHint ? setHintFor(n) : start(n.network))}>
-              <NetworkIcon network={n.network} />
-              <div><b style={{ display: 'block' }}>{n.label}</b><span className="subtle">{n.note ?? (n.rules?.thread ? `Threads up to ${n.rules.thread} parts` : '')}</span></div>
-            </button>
-          ))}
+          {(networks.data?.networks ?? [])
+            .slice()
+            .sort((a: any, b: any) => (b.configured ? 1 : 0) - (a.configured ? 1 : 0))
+            .map((n: any) => (
+              <button
+                key={n.network}
+                className="net-tile"
+                disabled={!n.configured}
+                style={!n.configured ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+                title={!n.configured ? "Not set up yet — this network's app credentials haven't been added to Relay" : undefined}
+                onClick={() => { if (!n.configured) return; n.needsHint ? setHintFor(n) : start(n.network); }}
+              >
+                <NetworkIcon network={n.network} />
+                <div><b style={{ display: 'block' }}>{n.label}</b><span className="subtle">{n.configured ? (n.note ?? (n.rules?.thread ? `Threads up to ${n.rules.thread} parts` : '')) : 'Not set up yet'}</span></div>
+              </button>
+            ))}
         </div>
         <h2 style={{ fontSize: 15, marginTop: 28 }}>Before you connect</h2>
         <ul className="subtle">

@@ -13,16 +13,17 @@ import { ShortLinkController } from './links/shortlink.controller.js';
 import { HealthController } from './health.controller.js';
 import { AiController } from './ai/ai.controller.js';
 import { NotifyController } from './notify/notify.controller.js';
+import { ShareController } from './share/share.controller.js';
 import { RedisService } from './infra/redis.service.js';
 import { QueuesService } from './infra/queues.service.js';
 
 @Module({
-  controllers: [HealthController, AuthController, OAuthController, WebhooksController, UploadsController, EventsController, StripeController, ShortLinkController, AiController, NotifyController],
+  controllers: [HealthController, AuthController, OAuthController, WebhooksController, UploadsController, EventsController, StripeController, ShortLinkController, AiController, NotifyController, ShareController],
   providers: [RedisService, QueuesService, AuthService, ChannelsService, BillingService, SessionMiddleware],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     // NestJS 11 uses path-to-regexp v8: wildcards are named (`{*path}`), not `(.*)`.
-    consumer.apply(SessionMiddleware).exclude('webhooks/{*path}', 'stripe/{*path}', 'r/{*path}', 'health', 'oauth/bluesky/{*path}').forRoutes('{*path}');
+    consumer.apply(SessionMiddleware).exclude('webhooks/{*path}', 'stripe/{*path}', 'r/{*path}', 'health', 'oauth/bluesky/{*path}', 'share/{*path}').forRoutes('{*path}');
   }
 }

@@ -2,7 +2,9 @@ import { builder } from '../builder.js';
 import { PostStatusEnum, ScheduleModeEnum, SchedulingTypeEnum, Issue, AccountSummary } from './enums.js';
 import { PostsService } from '../../posts/posts.service.js';
 import { prismaAdmin } from '@relay/db';
+import { env } from '@relay/config';
 import { fetchPreview } from '../../links/preview.service.js';
+import { makeShareToken } from '../../share/share.token.js';
 import { TagType } from './tags.js';
 
 builder.prismaObject('Post', {
@@ -107,6 +109,7 @@ builder.mutationFields(t => ({
   approvePost: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }), mode: t.arg({ type: ScheduleModeEnum, defaultValue: 'QUEUE' }), dueAt: t.arg({ type: 'DateTime' }) }, resolve: async (_r, args, ctx) => { await svc(ctx).approve(String(args.id), { mode: (args.mode as any) ?? 'QUEUE', dueAt: args.dueAt }); return true; } }),
   rejectPost: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }), reason: t.arg.string() }, resolve: async (_r, args, ctx) => { await svc(ctx).reject(String(args.id), args.reason ?? undefined); return true; } }),
   requestApproval: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }) }, resolve: async (_r, args, ctx) => { await svc(ctx).requestApproval(String(args.id)); return true; } }),
+  createShareLink: t.string({ authScopes: { user: true }, args: { postId: t.arg.id({ required: true }) }, resolve: async (_r, args, ctx) => { const post = await ctx.db!.post.findFirstOrThrow({ where: { id: String(args.postId), organizationId: ctx.tenant!.organizationId }, select: { id: true } }); return `${env.APP_URL}/share/${makeShareToken(post.id)}`; } }),
   revertApproval: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }) }, resolve: async (_r, args, ctx) => { await svc(ctx).revertApproval(String(args.id)); return true; } }),
   addNote: t.prismaField({ type: 'Note', authScopes: { user: true }, args: { postId: t.arg.id({ required: true }), body: t.arg.string({ required: true }) }, resolve: (q, _r, args, ctx) => ctx.db!.note.create({ ...q, data: { organizationId: ctx.tenant!.organizationId, postId: String(args.postId), authorAccountId: ctx.account!.id, body: args.body.slice(0, 5000) } }) }),
   editNote: t.prismaField({ type: 'Note', authScopes: { user: true }, args: { id: t.arg.id({ required: true }), body: t.arg.string({ required: true }) }, resolve: async (q, _r, args, ctx) => { const n = await ctx.db!.note.findUniqueOrThrow({ where: { id: String(args.id) } }); if (n.authorAccountId !== ctx.account!.id) throw new Error('Not authorized'); return ctx.db!.note.update({ ...q, where: { id: n.id }, data: { body: args.body.slice(0, 5000), editedAt: new Date() } }); } }),
