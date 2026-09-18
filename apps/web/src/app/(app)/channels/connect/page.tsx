@@ -1,18 +1,22 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { TopBar } from '@/components/shell/TopBar';
-import { useNetworks, useMe } from '@/lib/hooks';
+import { useNetworks, useMe, useAccount, useMutate } from '@/lib/hooks';
+import { M } from '@/lib/queries';
 import { NetworkIcon, Modal } from '@/components/ui/primitives';
+import { toast } from '@/components/ui/toast';
 
 export default function ConnectPage() {
-  const networks = useNetworks(); const me = useMe();
+  const networks = useNetworks(); const me = useMe(); const account = useAccount();
   const [hintFor, setHintFor] = useState<any>(null); const [hint, setHint] = useState('');
   const hintRef = useRef<HTMLInputElement>(null);
+  const connLink = useMutate(M.createConnectionLink, { onSuccess: (d: any) => { try { navigator.clipboard.writeText(d.createConnectionLink); } catch { /* shown in toast */ } toast(`Client connect link copied: ${d.createConnectionLink}`, { tone: 'success' }); } });
   useEffect(() => { if (hintFor) hintRef.current?.focus(); }, [hintFor]);
   const start = (n: string, h?: string) => { window.location.href = `/api/oauth/${n}/start${h ? `?hint=${encodeURIComponent(h)}` : ''}`; };
+  const isAdmin = ['OWNER', 'ADMIN'].includes((account.data?.organizations?.find((o: any) => o.id === account.data?.currentOrganizationId)?.role) ?? '');
   return (
     <>
-      <TopBar title="Connect a channel" />
+      <TopBar title="Connect a channel" actions={isAdmin ? <button className="btn secondary sm" onClick={() => connLink.mutate({})} title="Generate a link a client can use to connect their own channels">🔗 Client connect link</button> : undefined} />
       <main className="content" id="main">
         <p className="subtle">You'll be sent to the network to sign in and grant access. Accept all permissions — each one maps to a feature (publishing, analytics, comments).</p>
         <div className="chan-grid">

@@ -47,6 +47,7 @@ export const M = {
   requestApproval: gql`mutation ReqApproval($id: ID!) { requestApproval(id: $id) }`,
   createShareLink: gql`mutation ShareLink($postId: ID!) { createShareLink(postId: $postId) }`,
   createReviewLink: gql`mutation ReviewLink($postId: ID!) { createReviewLink(postId: $postId) }`,
+  createConnectionLink: gql`mutation ConnLink { createConnectionLink }`,
   markNotificationRead: gql`mutation MarkNoti($id: ID!) { markNotificationRead(id: $id) }`,
   markAllNotificationsRead: gql`mutation MarkAllNoti { markAllNotificationsRead }`,
   createCalendarEvent: gql`mutation CreateCalEvent($title: String!, $startDate: DateTime!, $endDate: DateTime, $color: String, $note: String) { createCalendarEvent(title: $title, startDate: $startDate, endDate: $endDate, color: $color, note: $note) { id } }`,

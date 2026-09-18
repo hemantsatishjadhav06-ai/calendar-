@@ -51,3 +51,27 @@ export function readReviewToken(token: string): string | null {
     return null;
   }
 }
+
+// Self-serve connection links: a signed token carrying an organizationId, so a client can connect their
+// own channels without a Cadence account. Distinct "connect:" prefix.
+const signConnect = (data: string) => b64url(createHmac('sha256', env.SESSION_SECRET).update('connect:' + data).digest());
+
+export function makeConnectToken(organizationId: string, ttlDays = 14): string {
+  const payload = b64url(Buffer.from(JSON.stringify({ p: organizationId, e: Date.now() + ttlDays * 864e5 })));
+  return `${payload}.${signConnect(payload)}`;
+}
+
+export function readConnectToken(token: string): string | null {
+  const [payload, sig] = (token ?? '').split('.');
+  if (!payload || !sig) return null;
+  const expected = signConnect(payload);
+  const a = Buffer.from(sig), b = Buffer.from(expected);
+  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  try {
+    const { p, e } = JSON.parse(Buffer.from(payload, 'base64url').toString());
+    if (!p || typeof e !== 'number' || Date.now() > e) return null;
+    return p as string;
+  } catch {
+    return null;
+  }
+}

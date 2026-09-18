@@ -6,6 +6,8 @@ import { getConnector, NETWORK_CATALOG, networkConfigured } from '@cadence/conne
 import { tokenVault } from '@cadence/token-vault';
 import { publicRulesSummary } from '@cadence/network-rules';
 import { events } from '../../events/events.bus.js';
+import { env } from '@cadence/config';
+import { makeConnectToken } from '../../share/share.token.js';
 
 builder.prismaObject('Channel', {
   fields: t => ({
@@ -62,6 +64,8 @@ builder.queryFields(t => ({
 const SlotInput = builder.inputType('PostingSlotInput', { fields: t => ({ weekday: t.int({ required: true }), minuteOfDay: t.int({ required: true }), enabled: t.boolean({ defaultValue: true }) }) });
 
 builder.mutationFields(t => ({
+  // Self-serve connection link: lets a client connect their own channels to this workspace (admin only).
+  createConnectionLink: t.string({ authScopes: { admin: true }, resolve: (_r, _a, ctx) => `${env.APP_URL}/connect/${makeConnectToken(ctx.tenant!.organizationId)}` }),
   updateChannel: t.prismaField({
     type: 'Channel', authScopes: { user: true },
     args: { id: t.arg.id({ required: true }), timezone: t.arg.string(), isPaused: t.arg.boolean(), notifyByDefault: t.arg.boolean(), postingGoalPerWeek: t.arg.int(), displayName: t.arg.string(), meta: t.arg({ type: 'JSON' }) },
