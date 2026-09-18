@@ -30,6 +30,7 @@ export interface CreatePostInput {
   ideaId?: string | null;
   templateId?: string | null;
   aiAssisted?: boolean;
+  autoRepost?: 'OFF' | 'ALWAYS' | 'SMART';
 }
 
 const queues = new QueuesService();
@@ -83,7 +84,7 @@ export class PostsService {
     const post = await this.db.tx(async tx => {
       const post = await tx.post.create({ data: {
         organizationId: tenant.organizationId, createdByAccountId: this.account.id, status: postStatus, scheduleMode: mode,
-        baseText: input.baseText, baseMedia: (input.baseMedia ?? []) as any, linkPreview: input.linkPreview as any ?? undefined, ideaId: input.ideaId ?? undefined, templateId: input.templateId ?? undefined, aiAssisted: !!input.aiAssisted,
+        baseText: input.baseText, baseMedia: (input.baseMedia ?? []) as any, linkPreview: input.linkPreview as any ?? undefined, ideaId: input.ideaId ?? undefined, templateId: input.templateId ?? undefined, aiAssisted: !!input.aiAssisted, autoRepost: input.autoRepost ?? 'OFF',
         tags: { create: (input.tagIds ?? []).map(tagId => ({ tagId })) },
         approval: needsApproval && mode !== 'DRAFT' ? { create: { requestedByAccountId: this.account.id } } : undefined,
       } });
@@ -142,7 +143,7 @@ export class PostsService {
     const baseText = input.baseText ?? post.baseText;
     const baseMedia = (input.baseMedia ?? post.baseMedia) as any;
     await this.db.tx(async tx => {
-      await tx.post.update({ where: { id: postId }, data: { baseText, baseMedia, ...(input.linkPreview !== undefined ? { linkPreview: input.linkPreview as any } : {}), ...(input.tagIds ? { tags: { deleteMany: {}, create: input.tagIds.map(tagId => ({ tagId })) } } : {}) } });
+      await tx.post.update({ where: { id: postId }, data: { baseText, baseMedia, ...(input.autoRepost !== undefined ? { autoRepost: input.autoRepost } : {}), ...(input.linkPreview !== undefined ? { linkPreview: input.linkPreview as any } : {}), ...(input.tagIds ? { tags: { deleteMany: {}, create: input.tagIds.map(tagId => ({ tagId })) } } : {}) } });
       for (const t of post.targets) {
         const ti = input.targets?.find(x => x.channelId === t.channelId);
         const text = ti?.text ?? (t.customized ? t.text : baseText);

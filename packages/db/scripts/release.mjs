@@ -74,6 +74,12 @@ async function main() {
   await tryRun('Network enum: DEVTO', `ALTER TYPE "Network" ADD VALUE IF NOT EXISTS 'DEVTO'`);
   await tryRun('Network enum: DISCORD', `ALTER TYPE "Network" ADD VALUE IF NOT EXISTS 'DISCORD'`);
 
+  // Auto-repost ("boost"): enum type + two Post columns on existing databases (fresh DBs get them
+  // from 0001). CREATE TYPE / ADD COLUMN are idempotent via IF NOT EXISTS / duplicate_object guard.
+  await tryRun('AutoRepost enum', `DO $$ BEGIN CREATE TYPE "AutoRepost" AS ENUM ('OFF', 'ALWAYS', 'SMART'); EXCEPTION WHEN duplicate_object THEN null; END $$`);
+  await tryRun('Post.autoRepost', `ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "autoRepost" "AutoRepost" NOT NULL DEFAULT 'OFF'::"AutoRepost"`);
+  await tryRun('Post.boostedAt', `ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "boostedAt" timestamp(3)`);
+
   await run('grants', `
     GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO relay, relay_vault;
     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO relay, relay_vault;

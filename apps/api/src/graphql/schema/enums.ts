@@ -10,6 +10,7 @@ export const PublishAccessEnum = builder.enumType('PublishAccess', { values: ['F
 export const CommunityAccessEnum = builder.enumType('CommunityAccess', { values: ['FULL', 'VIEW', 'NONE'] as const });
 export const CommentKindEnum = builder.enumType('CommentKind', { values: ['COMMENT', 'REPLY', 'MENTION', 'REVIEW', 'DM'] as const });
 export const PlanEnum = builder.enumType('Plan', { values: ['FREE', 'ESSENTIALS', 'TEAM'] as const });
+export const AutoRepostEnum = builder.enumType('AutoRepost', { values: ['OFF', 'ALWAYS', 'SMART'] as const });
 
 export const MutationError = builder.objectRef<{ code: string; message: string; field?: string | null }>('MutationError').implement({
   fields: t => ({ code: t.exposeString('code'), message: t.exposeString('message'), field: t.exposeString('field', { nullable: true }) }),

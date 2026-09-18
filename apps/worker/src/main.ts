@@ -9,6 +9,7 @@ import { metricsWorker } from './metrics.processor.js';
 import { inboxWorker } from './inbox.processor.js';
 import { housekeepingWorker } from './housekeeping.processor.js';
 import { aiWorker } from './ai.processor.js';
+import { boostWorker } from './boost.processor.js';
 
 const log = pino({ name: 'worker' });
 const role = process.env.WORKER_ROLE ?? 'all';   // all | publish | media | metrics | inbox | housekeeping — for separate deployments/scaling
@@ -22,8 +23,9 @@ const workers = {
   inbox: () => inboxWorker(),
   housekeeping: () => housekeepingWorker(),
   ai: () => aiWorker(),
+  boost: () => boostWorker(),
 };
-const enabled = role === 'all' ? Object.keys(workers) : role === 'publish' ? ['dispatcher', 'publish', 'notify'] : [role];
+const enabled = role === 'all' ? Object.keys(workers) : role === 'publish' ? ['dispatcher', 'publish', 'notify', 'boost'] : [role];
 const running = enabled.map(k => (workers as any)[k]());
 log.info({ enabled }, 'workers started');
 

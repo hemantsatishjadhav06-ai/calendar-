@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useQueryClient } from '@tanstack/react-query';
-import { Sparkles, LayoutTemplate, StickyNote, X as CloseIcon, ChevronDown, Hash } from 'lucide-react';
+import { Sparkles, LayoutTemplate, StickyNote, X as CloseIcon, ChevronDown, Hash, Repeat2 } from 'lucide-react';
 import { rulesFor, validateTarget, type Issue } from '@cadence/network-rules';
 import { useComposer } from './store';
 import { useChannels, useMe, useTags } from '@/lib/hooks';
@@ -45,7 +45,7 @@ export function ComposerHost() {
   const buildInput = () => ({
     baseText: s.baseText, baseMedia: s.baseMedia.map(cleanMedia), linkPreview: s.linkPreview && !s.linkPreview.removed ? { url: s.linkPreview.url, title: s.linkPreview.title, description: s.linkPreview.description, imageAssetId: s.linkPreview.imageAssetId } : null,
     targets: selected.map(c => { const t = s.targets[c.id]; return { channelId: c.id, text: t.customized ? t.text : null, media: t.customized ? t.media.map(cleanMedia) : null, thread: t.thread.length ? t.thread.map(p => ({ text: p.text, media: p.media.map(cleanMedia) })) : null, firstComment: t.firstComment || null, metadata: t.metadata, schedulingType: t.schedulingType }; }),
-    mode: s.mode, dueAt: s.mode === 'CUSTOM' ? s.dueAt : null, tagIds: s.tagIds, requestApproval: s.requestApproval || needsApproval, ideaId: s.ideaId ?? null, templateId: s.templateId ?? null, aiAssisted: s.aiAssisted,
+    mode: s.mode, dueAt: s.mode === 'CUSTOM' ? s.dueAt : null, tagIds: s.tagIds, requestApproval: s.requestApproval || needsApproval, ideaId: s.ideaId ?? null, templateId: s.templateId ?? null, aiAssisted: s.aiAssisted, autoRepost: s.autoRepost,
   });
 
   async function submit(mode: typeof s.mode, dueAt?: string | null) {
@@ -54,7 +54,7 @@ export function ComposerHost() {
     setBusy(true);
     try {
       const input = { ...buildInput(), mode, dueAt: mode === 'CUSTOM' ? (dueAt ?? s.dueAt) : null };
-      if (s.postId) await gqlRequest(M.updatePost, { id: s.postId, input: { baseText: input.baseText, baseMedia: input.baseMedia, linkPreview: input.linkPreview, targets: input.targets, tagIds: input.tagIds, mode: input.mode, dueAt: input.dueAt } });
+      if (s.postId) await gqlRequest(M.updatePost, { id: s.postId, input: { baseText: input.baseText, baseMedia: input.baseMedia, linkPreview: input.linkPreview, targets: input.targets, tagIds: input.tagIds, mode: input.mode, dueAt: input.dueAt, autoRepost: input.autoRepost } });
       else await gqlRequest(M.createPost, { input });
       qc.invalidateQueries({ queryKey: ['targets'] }); qc.invalidateQueries({ queryKey: ['channels'] });
       toast(mode === 'DRAFT' ? 'Saved as draft' : mode === 'NOW' ? 'Publishing now…' : input.requestApproval ? 'Sent for approval' : mode === 'SHARE_NEXT' ? 'Added to the top of the queue' : 'Added to queue', { tone: 'success' });
@@ -132,6 +132,13 @@ export function ComposerHost() {
           </div>
           <div className="dialog-foot">
             <TagPicker tags={tags.data?.tags ?? []} value={s.tagIds} onChange={s.setTagIds} />
+            {selected.some(c => ['X', 'LINKEDIN', 'BLUESKY'].includes(c.network)) && (
+              <Menu trigger={<button className="btn ghost sm" title="Auto-repost this post later to extend its reach (X, LinkedIn, Bluesky)"><Repeat2 size={14} /> {s.autoRepost === 'OFF' ? 'Boost' : s.autoRepost === 'ALWAYS' ? 'Boost: Always' : 'Boost: Smart'}</button>}>
+                <MenuItem onSelect={() => s.setAutoRepost('OFF')}>{s.autoRepost === 'OFF' ? '✓ ' : ''}Off — publish once</MenuItem>
+                <MenuItem onSelect={() => s.setAutoRepost('SMART')}>{s.autoRepost === 'SMART' ? '✓ ' : ''}Smart — repost only if it takes off</MenuItem>
+                <MenuItem onSelect={() => s.setAutoRepost('ALWAYS')}>{s.autoRepost === 'ALWAYS' ? '✓ ' : ''}Always — repost after 48h</MenuItem>
+              </Menu>
+            )}
             {hasErrors && <span className="subtle" style={{ color: 'var(--danger)' }}>⚠ {Object.values(issues).flat().filter(i => i.level === 'error').length} issue(s) to fix</span>}
             <span style={{ flex: 1 }} />
             <button className="btn secondary" disabled={busy} onClick={() => submit('DRAFT')}>Save as draft</button>

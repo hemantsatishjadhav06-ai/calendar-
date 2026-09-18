@@ -1,5 +1,5 @@
 import { builder } from '../builder.js';
-import { PostStatusEnum, ScheduleModeEnum, SchedulingTypeEnum, Issue, AccountSummary } from './enums.js';
+import { PostStatusEnum, ScheduleModeEnum, SchedulingTypeEnum, AutoRepostEnum, Issue, AccountSummary } from './enums.js';
 import { PostsService } from '../../posts/posts.service.js';
 import { prismaAdmin } from '@cadence/db';
 import { env } from '@cadence/config';
@@ -16,6 +16,8 @@ builder.prismaObject('Post', {
     baseMedia: t.expose('baseMedia', { type: 'JSON' }),
     linkPreview: t.expose('linkPreview', { type: 'JSON', nullable: true }),
     aiAssisted: t.exposeBoolean('aiAssisted'),
+    autoRepost: t.expose('autoRepost', { type: AutoRepostEnum }),
+    boostedAt: t.expose('boostedAt', { type: 'DateTime', nullable: true }),
     ideaId: t.exposeID('ideaId', { nullable: true }),
     createdBy: t.field({ type: AccountSummary, nullable: true, resolve: p => prismaAdmin.account.findUnique({ where: { id: p.createdByAccountId }, select: { id: true, email: true, name: true, avatarUrl: true } }) }),
     createdAt: t.expose('createdAt', { type: 'DateTime' }),
@@ -67,10 +69,10 @@ const CreatePostInput = builder.inputType('CreatePostInput', {
   fields: t => ({
     baseText: t.string({ required: true }), baseMedia: t.field({ type: [MediaInput] }), linkPreview: t.field({ type: LinkPreviewInput }),
     targets: t.field({ type: [TargetInput], required: true }), mode: t.field({ type: ScheduleModeEnum, required: true }), dueAt: t.field({ type: 'DateTime' }), dueAtByChannel: t.field({ type: 'JSON' }),
-    tagIds: t.idList(), requestApproval: t.boolean(), ideaId: t.id(), templateId: t.id(), aiAssisted: t.boolean(),
+    tagIds: t.idList(), requestApproval: t.boolean(), ideaId: t.id(), templateId: t.id(), aiAssisted: t.boolean(), autoRepost: t.field({ type: AutoRepostEnum }),
   }),
 });
-const UpdatePostInput = builder.inputType('UpdatePostInput', { fields: t => ({ baseText: t.string(), baseMedia: t.field({ type: [MediaInput] }), linkPreview: t.field({ type: LinkPreviewInput }), targets: t.field({ type: [TargetInput] }), tagIds: t.idList(), mode: t.field({ type: ScheduleModeEnum }), dueAt: t.field({ type: 'DateTime' }) }) });
+const UpdatePostInput = builder.inputType('UpdatePostInput', { fields: t => ({ baseText: t.string(), baseMedia: t.field({ type: [MediaInput] }), linkPreview: t.field({ type: LinkPreviewInput }), targets: t.field({ type: [TargetInput] }), tagIds: t.idList(), mode: t.field({ type: ScheduleModeEnum }), dueAt: t.field({ type: 'DateTime' }), autoRepost: t.field({ type: AutoRepostEnum }) }) });
 
 const PostFilter = builder.inputType('PostFilter', { fields: t => ({ status: t.field({ type: [PostStatusEnum] }), channelIds: t.idList(), tagIds: t.idList(), from: t.field({ type: 'DateTime' }), to: t.field({ type: 'DateTime' }), search: t.string(), createdByMe: t.boolean() }) });
 

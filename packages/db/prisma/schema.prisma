@@ -288,6 +288,8 @@ model Post {
   ideaId             String?      @db.Uuid
   templateId         String?      @db.Uuid
   aiAssisted         Boolean      @default(false)
+  autoRepost         AutoRepost   @default(OFF)
+  boostedAt          DateTime?
   approval           Approval?
   tags               PostTag[]
   targets            PostTarget[]
@@ -617,6 +619,13 @@ enum Plan {
   FREE
   ESSENTIALS
   TEAM
+}
+
+/** Per-post auto-repost ("boost") policy for repost-capable networks (X, LinkedIn, Bluesky). */
+enum AutoRepost {
+  OFF
+  ALWAYS
+  SMART
 }
 model Subscription {
   organizationId       String       @id @db.Uuid

@@ -10,6 +10,7 @@ DO $$ BEGIN CREATE TYPE "ScheduleMode" AS ENUM ('QUEUE', 'SHARE_NEXT', 'CUSTOM',
 DO $$ BEGIN CREATE TYPE "SchedulingType" AS ENUM ('AUTOMATIC', 'NOTIFICATION'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TYPE "CommentKind" AS ENUM ('COMMENT', 'REPLY', 'MENTION', 'REVIEW', 'DM'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TYPE "Plan" AS ENUM ('FREE', 'ESSENTIALS', 'TEAM'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE "AutoRepost" AS ENUM ('OFF', 'ALWAYS', 'SMART'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 CREATE TABLE IF NOT EXISTS "Account" (
   "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
   "email" text NOT NULL,
@@ -163,6 +164,8 @@ CREATE TABLE IF NOT EXISTS "Post" (
   "ideaId" uuid,
   "templateId" uuid,
   "aiAssisted" boolean NOT NULL DEFAULT false,
+  "autoRepost" "AutoRepost" NOT NULL DEFAULT 'OFF'::"AutoRepost",
+  "boostedAt" timestamp(3),
   "createdAt" timestamp(3) NOT NULL DEFAULT now(),
   "updatedAt" timestamp(3) NOT NULL DEFAULT now(),
   "deletedAt" timestamp(3),

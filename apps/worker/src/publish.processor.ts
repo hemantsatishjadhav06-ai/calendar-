@@ -7,6 +7,7 @@ import { env } from '@cadence/config';
 import { connection, queue, log, emit, WORKER_ID } from './infra.js';
 import { RateBudget } from './rate-budget.js';
 import { sendMail } from './mail.js';
+import { scheduleBoostIfOptedIn } from './boost.processor.js';
 
 const BACKOFF_MS = [60_000, 5 * 60_000, 15 * 60_000, 60 * 60_000, 3 * 60 * 60_000];
 
@@ -44,6 +45,7 @@ export async function processPublishJob({ targetId }: { targetId: string }) {
     await prismaAdmin.postTarget.update({ where: { id: target.id }, data: { status: 'PUBLISHED', publishedAt: new Date(), externalPostId: result.externalId, externalUrl: result.url ?? null, lockedBy: null, lockedAt: null, failureCode: null, failureMessage: null, metadata: { ...(target.metadata as any), publishExtra: result.extra ?? undefined } } });
     await rollupPostStatus(target.postId);
     await queue('metrics').add('bootstrap', { targetId: target.id, organizationId: target.organizationId }, { delay: 30 * 60_000, jobId: `bootstrap-${target.id}` });
+    await scheduleBoostIfOptedIn({ id: target.id, organizationId: target.organizationId, channel: { network: channel.network }, post: { autoRepost: (target.post as any).autoRepost, boostedAt: (target.post as any).boostedAt } });
     await emit(target.organizationId, { type: 'target.published', targetId: target.id, url: result.url });
     await emit(target.organizationId, { type: 'queue.changed', channelId: channel.id });
     log.info({ targetId: target.id, network: channel.network, externalId: result.externalId }, 'published');
