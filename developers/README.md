@@ -1,4 +1,4 @@
-# Relay public API
+# Cadence public API
 
 One GraphQL endpoint: `POST https://api.<domain>/graphql`
 Auth: `Authorization: Bearer rly_live_…` (Settings → API). Select the organization with `X-Organization-Id: <uuid>` (defaults to the key's organization).

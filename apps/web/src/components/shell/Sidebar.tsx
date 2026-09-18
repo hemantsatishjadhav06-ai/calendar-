@@ -27,7 +27,7 @@ export function Sidebar({ account }: { account: any }) {
 
   return (
     <aside className="sidebar" aria-label="Primary">
-      <div className="sidebar-head"><span className="sidebar-logo" aria-hidden>R</span><span>Relay</span><button className="btn primary sm" style={{ marginLeft: 'auto' }} onClick={() => open({})} aria-label="Create post"><Plus size={14} /> New</button></div>
+      <div className="sidebar-head"><span className="sidebar-logo" aria-hidden>C</span><span>Cadence</span><button className="btn primary sm" style={{ marginLeft: 'auto' }} onClick={() => open({})} aria-label="Create post"><Plus size={14} /> New</button></div>
       <button className="sidebar-search" onClick={() => document.dispatchEvent(new CustomEvent('relay:palette'))}><Search size={14} /> Search or jump to… <span className="kbd" style={{ marginLeft: 'auto' }}>⌘K</span></button>
       <nav aria-label="Products">
         <Link className="nav-item" href="/home" aria-current={is('/home')}><Home size={18} /> Home</Link>

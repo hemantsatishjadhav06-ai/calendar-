@@ -1,6 +1,6 @@
-import type { Channel, PostTarget } from '@relay/db';
-import type { NetworkRules } from '@relay/network-rules';
-import type { Creds } from '@relay/token-vault';
+import type { Channel, PostTarget } from '@cadence/db';
+import type { NetworkRules } from '@cadence/network-rules';
+import type { Creds } from '@cadence/token-vault';
 
 export type { Creds };
 

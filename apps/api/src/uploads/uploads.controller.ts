@@ -2,9 +2,9 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { z } from 'zod';
-import { env } from '@relay/config';
-import { prismaAdmin } from '@relay/db';
-import { DomainError } from '@relay/domain';
+import { env } from '@cadence/config';
+import { prismaAdmin } from '@cadence/db';
+import { DomainError } from '@cadence/domain';
 import { requireTenant } from '../auth/session.middleware.js';
 import { QueuesService } from '../infra/queues.service.js';
 

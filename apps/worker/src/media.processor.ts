@@ -6,8 +6,8 @@ import { createHash } from 'node:crypto';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { env } from '@relay/config';
-import { prismaAdmin } from '@relay/db';
+import { env } from '@cadence/config';
+import { prismaAdmin } from '@cadence/db';
 import { connection, log, emit } from './infra.js';
 import { IMAGE_SPECS, VIDEO_SPECS, type ImageSpec, type VideoSpec } from './media.specs.js';
 

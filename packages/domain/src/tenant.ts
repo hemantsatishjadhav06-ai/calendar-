@@ -1,5 +1,5 @@
-import type { OrgRole, PublishAccess, CommunityAccess } from '@relay/db';
-import type { Entitlements } from '@relay/entitlements';
+import type { OrgRole, PublishAccess, CommunityAccess } from '@cadence/db';
+import type { Entitlements } from '@cadence/entitlements';
 
 export interface TenantContext {
   accountId: string;

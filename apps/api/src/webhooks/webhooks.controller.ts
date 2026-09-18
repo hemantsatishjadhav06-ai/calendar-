@@ -1,9 +1,9 @@
 import { All, Controller, Param, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { createHash } from 'node:crypto';
-import { prismaAdmin, type Network } from '@relay/db';
-import { getConnector, parseSignedRequest } from '@relay/connectors';
-import { env } from '@relay/config';
+import { prismaAdmin, type Network } from '@cadence/db';
+import { getConnector, parseSignedRequest } from '@cadence/connectors';
+import { env } from '@cadence/config';
 import { QueuesService } from '../infra/queues.service.js';
 
 /**

@@ -5,8 +5,8 @@ import ScopeAuthPlugin from '@pothos/plugin-scope-auth';
 import ErrorsPlugin from '@pothos/plugin-errors';
 import ComplexityPlugin from '@pothos/plugin-complexity';
 import { GraphQLDateTime, GraphQLJSON } from 'graphql-scalars';
-import { prismaApp, getDatamodel, type PrismaClient, type PrismaTypes } from '@relay/db';
-import { can, hasApiScope, type Action } from '@relay/domain';
+import { prismaApp, getDatamodel, type PrismaClient, type PrismaTypes } from '@cadence/db';
+import { can, hasApiScope, type Action } from '@cadence/domain';
 import type { GqlContext } from './context.js';
 
 export const builder = new SchemaBuilder<{

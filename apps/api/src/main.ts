@@ -5,7 +5,7 @@ import cookieParser from 'cookie-parser';
 import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import pino from 'pino';
-import { env } from '@relay/config';
+import { env } from '@cadence/config';
 import { AppModule } from './app.module.js';
 import { createYoga } from './graphql/yoga.js';
 import { DomainExceptionFilter } from './common/domain-exception.filter.js';

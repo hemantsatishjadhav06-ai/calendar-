@@ -1,5 +1,5 @@
-import { env } from '@relay/config';
-import { threadsRules } from '@relay/network-rules';
+import { env } from '@cadence/config';
+import { threadsRules } from '@cadence/network-rules';
 import type { SocialConnector, MediaRef, InboxItem } from '../types.js';
 import { graph, THREADS, verifyMetaWebhook, waitFor } from './graph.js';
 import { ConnectorError, http, readJson, mediaUrl, newState, assertConfigured, unix } from '../shared/index.js';

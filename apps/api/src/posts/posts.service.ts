@@ -1,12 +1,12 @@
-import { prismaAdmin, type Prisma, type PostTarget, type Channel, type TenantPrisma } from '@relay/db';
-import { rulesFor, validateTarget, hasErrors, type Issue, type MediaLite } from '@relay/network-rules';
-import { QueueOps, assertCan, requiresApproval, DomainError, entitlement, isAdmin, extractHashtags, type TenantContext } from '@relay/domain';
-import { within } from '@relay/entitlements';
+import { prismaAdmin, type Prisma, type PostTarget, type Channel, type TenantPrisma } from '@cadence/db';
+import { rulesFor, validateTarget, hasErrors, type Issue, type MediaLite } from '@cadence/network-rules';
+import { QueueOps, assertCan, requiresApproval, DomainError, entitlement, isAdmin, extractHashtags, type TenantContext } from '@cadence/domain';
+import { within } from '@cadence/entitlements';
 import { QueuesService } from '../infra/queues.service.js';
 import { ShortenerService } from '../links/shortener.service.js';
 import { events } from '../events/events.bus.js';
 import { mail } from '../mail/mail.js';
-import { env } from '@relay/config';
+import { env } from '@cadence/config';
 
 export interface TargetInput {
   channelId: string;

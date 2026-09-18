@@ -1,10 +1,10 @@
 import { builder } from '../builder.js';
 import { NetworkEnum, ChannelStatusEnum } from './enums.js';
-import { prismaAdmin } from '@relay/db';
-import { QueueOps, assertCan, DomainError, groupSlotsByDay, nextFreeSlots } from '@relay/domain';
-import { getConnector, NETWORK_CATALOG, networkConfigured } from '@relay/connectors';
-import { tokenVault } from '@relay/token-vault';
-import { publicRulesSummary } from '@relay/network-rules';
+import { prismaAdmin } from '@cadence/db';
+import { QueueOps, assertCan, DomainError, groupSlotsByDay, nextFreeSlots } from '@cadence/domain';
+import { getConnector, NETWORK_CATALOG, networkConfigured } from '@cadence/connectors';
+import { tokenVault } from '@cadence/token-vault';
+import { publicRulesSummary } from '@cadence/network-rules';
 import { events } from '../../events/events.bus.js';
 
 builder.prismaObject('Channel', {

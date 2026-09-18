@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Smile, Hash, Link2, ImagePlus, Sparkles, ListPlus, Trash2 } from 'lucide-react';
-import type { NetworkRules } from '@relay/network-rules';
+import type { NetworkRules } from '@cadence/network-rules';
 import type { MediaItem, LinkPreview } from './store';
 import { gqlRequest } from '@/lib/api';
 import { Q } from '@/lib/queries';

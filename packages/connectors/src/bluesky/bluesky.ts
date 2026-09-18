@@ -2,9 +2,9 @@ import { NodeOAuthClient, type NodeSavedSession, type NodeSavedState } from '@at
 import { Agent, RichText, type AppBskyFeedPost, type AppBskyEmbedImages, type AppBskyEmbedExternal, type AppBskyEmbedVideo } from '@atproto/api';
 import { JoseKey } from '@atproto/jwk-jose';
 import { Redis } from 'ioredis';
-import { env } from '@relay/config';
-import { blueskyRules } from '@relay/network-rules';
-import { tokenVault, type Creds } from '@relay/token-vault';
+import { env } from '@cadence/config';
+import { blueskyRules } from '@cadence/network-rules';
+import { tokenVault, type Creds } from '@cadence/token-vault';
 import type { SocialConnector, MediaRef, InboxItem } from '../types.js';
 import { ConnectorError, http, readJson, streamFromS3, sleep, chunks, newState, assertConfigured } from '../shared/index.js';
 
@@ -19,7 +19,7 @@ export async function bskyClient() {
   assertConfigured(['BSKY_PRIVATE_KEY_1', env.BSKY_PRIVATE_KEY_1]);
   client = new NodeOAuthClient({
     clientMetadata: {
-      client_id: `${env.APP_URL}/oauth/bluesky/client-metadata.json`, client_name: 'Relay', client_uri: env.APP_URL, logo_uri: `${env.APP_URL}/logo.png`, tos_uri: `${env.APP_URL}/terms`, policy_uri: `${env.APP_URL}/privacy`,
+      client_id: `${env.APP_URL}/oauth/bluesky/client-metadata.json`, client_name: 'Cadence', client_uri: env.APP_URL, logo_uri: `${env.APP_URL}/logo.png`, tos_uri: `${env.APP_URL}/terms`, policy_uri: `${env.APP_URL}/privacy`,
       redirect_uris: [`${env.API_URL}/oauth/BLUESKY/callback`], grant_types: ['authorization_code', 'refresh_token'], response_types: ['code'], scope: SCOPE, application_type: 'web',
       token_endpoint_auth_method: 'private_key_jwt', token_endpoint_auth_signing_alg: 'ES256', dpop_bound_access_tokens: true, jwks_uri: `${env.APP_URL}/oauth/bluesky/jwks.json`,
     },

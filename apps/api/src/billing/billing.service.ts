@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import Stripe from 'stripe';
-import { env } from '@relay/config';
-import { prismaAdmin, type Plan } from '@relay/db';
-import { DomainError } from '@relay/domain';
-import { QueueOps } from '@relay/domain';
+import { env } from '@cadence/config';
+import { prismaAdmin, type Plan } from '@cadence/db';
+import { DomainError } from '@cadence/domain';
+import { QueueOps } from '@cadence/domain';
 
 @Injectable()
 export class BillingService {

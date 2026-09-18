@@ -1,8 +1,8 @@
 import { Body, Controller, Get, HttpCode, Post, Req, Res, UnauthorizedException } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
-import { env } from '@relay/config';
-import { prismaAdmin } from '@relay/db';
+import { env } from '@cadence/config';
+import { prismaAdmin } from '@cadence/db';
 import { AuthService } from './auth.service.js';
 import { SESSION_COOKIE, ctx } from './session.middleware.js';
 import { RedisService } from '../infra/redis.service.js';

@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TopBar } from '@/components/shell/TopBar';
 import { useNetworks, useMe } from '@/lib/hooks';
 import { NetworkIcon, Modal } from '@/components/ui/primitives';
@@ -7,6 +7,8 @@ import { NetworkIcon, Modal } from '@/components/ui/primitives';
 export default function ConnectPage() {
   const networks = useNetworks(); const me = useMe();
   const [hintFor, setHintFor] = useState<any>(null); const [hint, setHint] = useState('');
+  const hintRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (hintFor) hintRef.current?.focus(); }, [hintFor]);
   const start = (n: string, h?: string) => { window.location.href = `/api/oauth/${n}/start${h ? `?hint=${encodeURIComponent(h)}` : ''}`; };
   return (
     <>
@@ -23,8 +25,8 @@ export default function ConnectPage() {
                 className="net-tile"
                 disabled={!n.configured}
                 style={!n.configured ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
-                title={!n.configured ? "Not set up yet — this network's app credentials haven't been added to Relay" : undefined}
-                onClick={() => { if (!n.configured) return; n.needsHint ? setHintFor(n) : start(n.network); }}
+                title={!n.configured ? "Not set up yet — this network's app credentials haven't been added to Cadence" : undefined}
+                onClick={() => { if (!n.configured) return; if (n.needsHint) setHintFor(n); else start(n.network); }}
               >
                 <NetworkIcon network={n.network} />
                 <div><b style={{ display: 'block' }}>{n.label}</b><span className="subtle">{n.configured ? (n.note ?? (n.rules?.thread ? `Threads up to ${n.rules.thread} parts` : '')) : 'Not set up yet'}</span></div>
@@ -42,7 +44,7 @@ export default function ConnectPage() {
         </ul>
       </main>
       {hintFor && <Modal open onOpenChange={o => !o && setHintFor(null)} title={`Connect ${hintFor.label}`} size="sm" footer={<><span style={{ flex: 1 }} /><button className="btn secondary" onClick={() => setHintFor(null)}>Cancel</button><button className="btn primary" disabled={!hint} onClick={() => start(hintFor.network, hint)}>Continue</button></>}>
-        <div className="field"><label htmlFor="hint">{hintFor.needsHint === 'server' ? 'Your Mastodon server' : 'Your Bluesky handle'}</label><input id="hint" className="input" placeholder={hintFor.needsHint === 'server' ? 'mastodon.social' : 'you.bsky.social'} value={hint} onChange={e => setHint(e.target.value)} autoFocus /><span className="hint">{hintFor.needsHint === 'server' ? 'The domain of the instance where your account lives.' : 'We use your handle to find your account server (PDS).'}</span></div>
+        <div className="field"><label htmlFor="hint">{hintFor.needsHint === 'server' ? 'Your Mastodon server' : 'Your Bluesky handle'}</label><input id="hint" className="input" placeholder={hintFor.needsHint === 'server' ? 'mastodon.social' : 'you.bsky.social'} value={hint} onChange={e => setHint(e.target.value)} ref={hintRef} /><span className="hint">{hintFor.needsHint === 'server' ? 'The domain of the instance where your account lives.' : 'We use your handle to find your account server (PDS).'}</span></div>
       </Modal>}
     </>
   );

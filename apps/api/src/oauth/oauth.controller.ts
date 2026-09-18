@@ -1,10 +1,10 @@
 import { Body, Controller, Get, Param, Post, Query, Res, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import type { Response } from 'express';
 import { randomBytes } from 'node:crypto';
-import { env } from '@relay/config';
-import type { Network } from '@relay/db';
-import { getConnector, blueskyClientMetadata, blueskyJwks } from '@relay/connectors';
-import { assertCan } from '@relay/domain';
+import { env } from '@cadence/config';
+import type { Network } from '@cadence/db';
+import { getConnector, blueskyClientMetadata, blueskyJwks } from '@cadence/connectors';
+import { assertCan } from '@cadence/domain';
 import { requireTenant } from '../auth/session.middleware.js';
 import { RedisService } from '../infra/redis.service.js';
 import { ChannelsService } from '../channels/channels.service.js';

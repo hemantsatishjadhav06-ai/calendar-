@@ -1,4 +1,4 @@
-import { env } from '@relay/config';
+import { env } from '@cadence/config';
 import { ConnectorError, http, readJson, pkce, newState, assertConfigured, msUntilPacificMidnight } from '../shared/index.js';
 
 export function googleAuthUrl(redirectUri: string, scopes: string[]) {

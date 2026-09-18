@@ -1,6 +1,6 @@
 import { builder } from '../builder.js';
-import { prismaAdmin } from '@relay/db';
-import { QueueOps, assertCan, DomainError } from '@relay/domain';
+import { prismaAdmin } from '@cadence/db';
+import { QueueOps, assertCan, DomainError } from '@cadence/domain';
 import { QueuesService } from '../../infra/queues.service.js';
 import { events } from '../../events/events.bus.js';
 

@@ -17,7 +17,7 @@ export default function SignupPage() {
   return (
     <main className="auth-page" id="main">
       <form className="auth-card" onSubmit={submit} aria-labelledby="signup-title">
-        <div className="row" style={{ marginBottom: 20 }}><span className="sidebar-logo">R</span><h1 id="signup-title" style={{ margin: 0, fontSize: 22 }}>Create your account</h1></div>
+        <div className="row" style={{ marginBottom: 20 }}><span className="sidebar-logo">C</span><h1 id="signup-title" style={{ margin: 0, fontSize: 22 }}>Create your account</h1></div>
         {error && <div className="banner danger" role="alert">{error}</div>}
         <div className="field"><label htmlFor="name">Your name</label><input id="name" className="input" autoComplete="name" value={form.name} onChange={set('name')} /></div>
         <div className="field"><label htmlFor="email">Work email</label><input id="email" className="input" type="email" autoComplete="email" required value={form.email} onChange={set('email')} /></div>

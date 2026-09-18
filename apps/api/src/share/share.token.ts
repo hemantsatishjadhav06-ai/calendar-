@@ -1,5 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { env } from '@relay/config';
+import { env } from '@cadence/config';
 
 // Stateless, unguessable, tamper-proof share tokens — no DB row needed. The token carries the post id
 // and an expiry, signed with an HMAC over SESSION_SECRET (domain-separated with a "share:" prefix so it

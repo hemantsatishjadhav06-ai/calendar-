@@ -1,6 +1,6 @@
 import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import type { Response } from 'express';
-import type { ErrorCode } from '@relay/domain';
+import type { ErrorCode } from '@cadence/domain';
 
 // HTTP status for each domain error code. Mirrors what the GraphQL layer (graphql/yoga.ts) puts in
 // `extensions.code`, so REST and GraphQL clients get consistent semantics.

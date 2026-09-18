@@ -1,6 +1,6 @@
 import { builder } from '../builder.js';
-import { Prisma } from '@relay/db';
-import { DomainError, entitlement } from '@relay/domain';
+import { Prisma } from '@cadence/db';
+import { DomainError, entitlement } from '@cadence/domain';
 
 const LAST = new Set(['followers', 'monthly_views', 'posts_total', 'likes_total']);
 

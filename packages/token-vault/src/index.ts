@@ -1,4 +1,4 @@
-import { prismaVault, type Channel } from '@relay/db';
+import { prismaVault, type Channel } from '@cadence/db';
 import { keyProvider, open, seal } from './crypto.js';
 import { withLock } from './lock.js';
 

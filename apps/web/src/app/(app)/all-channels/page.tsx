@@ -1,5 +1,6 @@
 'use client';
 import { Suspense, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { TopBar } from '@/components/shell/TopBar';
 import { QueueList } from '@/components/publish/QueueList';
@@ -22,7 +23,7 @@ function AllChannelsInner() {
   const tabs = [{ href: '/all-channels?tab=queue', label: 'Queue' }, { href: '/all-channels?tab=drafts', label: 'Drafts' }, ...(ent.approvals ? [{ href: '/all-channels?tab=approvals', label: 'Approvals' }] : []), { href: '/all-channels?tab=sent', label: 'Sent' }];
   return (
     <>
-      <TopBar title={view ? view.name : 'All channels'} tabs={tabs} actions={<a className="btn ghost sm" href="/calendar/week">Calendar</a>} />
+      <TopBar title={view ? view.name : 'All channels'} tabs={tabs} actions={<Link className="btn ghost sm" href="/calendar/week">Calendar</Link>} />
       <main className="content" id="main">
         <div className="row" style={{ flexWrap: 'wrap', marginBottom: 14, gap: 6 }} role="toolbar" aria-label="Filters">
           <button className={`btn sm ${!effSel.length ? 'primary' : 'secondary'}`} onClick={() => setSel([])}>All</button>

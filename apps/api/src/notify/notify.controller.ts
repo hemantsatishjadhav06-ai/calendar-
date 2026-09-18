@@ -1,8 +1,8 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { env } from '@relay/config';
-import { prismaAdmin } from '@relay/db';
+import { env } from '@cadence/config';
+import { prismaAdmin } from '@cadence/db';
 import { requireTenant } from '../auth/session.middleware.js';
 
 const s3 = new S3Client({ region: env.S3_REGION, endpoint: env.S3_ENDPOINT, forcePathStyle: !!env.S3_ENDPOINT, credentials: env.S3_ACCESS_KEY ? { accessKeyId: env.S3_ACCESS_KEY, secretAccessKey: env.S3_SECRET_KEY! } : undefined });

@@ -8,12 +8,18 @@ importers:
 
   .:
     devDependencies:
+      '@eslint/js':
+        specifier: ^9
+        version: 9.39.5
       '@types/node':
         specifier: ^22.7.0
         version: 22.20.3
       eslint:
         specifier: ^9.12.0
         version: 9.39.5(jiti@2.7.0)
+      eslint-plugin-jsx-a11y:
+        specifier: ^6
+        version: 6.10.2(eslint@9.39.5(jiti@2.7.0))
       prettier:
         specifier: ^3.3.3
         version: 3.9.7
@@ -23,6 +29,9 @@ importers:
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
+      typescript-eslint:
+        specifier: ^8
+        version: 8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
       vitest:
         specifier: ^2.1.3
         version: 2.1.9(@types/node@22.20.3)
@@ -35,6 +44,33 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.650.0
         version: 3.1133.0
+      '@cadence/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
+      '@cadence/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@cadence/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
+      '@cadence/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@cadence/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@cadence/entitlements':
+        specifier: workspace:*
+        version: link:../../packages/entitlements
+      '@cadence/mail':
+        specifier: workspace:*
+        version: link:../../packages/mail
+      '@cadence/network-rules':
+        specifier: workspace:*
+        version: link:../../packages/network-rules
+      '@cadence/token-vault':
+        specifier: workspace:*
+        version: link:../../packages/token-vault
       '@nestjs/common':
         specifier: ^11.0.0
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -62,33 +98,6 @@ importers:
       '@pothos/plugin-scope-auth':
         specifier: ^4.1.0
         version: 4.2.1(@pothos/core@4.15.1(graphql@16.14.2))(graphql@16.14.2)
-      '@relay/ai':
-        specifier: workspace:*
-        version: link:../../packages/ai
-      '@relay/config':
-        specifier: workspace:*
-        version: link:../../packages/config
-      '@relay/connectors':
-        specifier: workspace:*
-        version: link:../../packages/connectors
-      '@relay/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@relay/domain':
-        specifier: workspace:*
-        version: link:../../packages/domain
-      '@relay/entitlements':
-        specifier: workspace:*
-        version: link:../../packages/entitlements
-      '@relay/mail':
-        specifier: workspace:*
-        version: link:../../packages/mail
-      '@relay/network-rules':
-        specifier: workspace:*
-        version: link:../../packages/network-rules
-      '@relay/token-vault':
-        specifier: workspace:*
-        version: link:../../packages/token-vault
       argon2:
         specifier: ^0.41.1
         version: 0.41.1
@@ -165,15 +174,15 @@ importers:
 
   apps/mcp:
     dependencies:
+      '@cadence/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@cadence/network-rules':
+        specifier: workspace:*
+        version: link:../../packages/network-rules
       '@modelcontextprotocol/sdk':
         specifier: ^1.4.0
         version: 1.30.0(zod@3.25.76)
-      '@relay/config':
-        specifier: workspace:*
-        version: link:../../packages/config
-      '@relay/network-rules':
-        specifier: workspace:*
-        version: link:../../packages/network-rules
       express:
         specifier: ^4.21.0
         version: 4.22.3
@@ -193,15 +202,15 @@ importers:
 
   apps/startpage:
     dependencies:
+      '@cadence/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@cadence/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@hono/node-server':
         specifier: ^1.13.1
         version: 1.19.17(hono@4.13.8)
-      '@relay/config':
-        specifier: workspace:*
-        version: link:../../packages/config
-      '@relay/db':
-        specifier: workspace:*
-        version: link:../../packages/db
       hono:
         specifier: ^4.6.3
         version: 4.13.8
@@ -218,6 +227,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@cadence/network-rules':
+        specifier: workspace:*
+        version: link:../../packages/network-rules
       '@dnd-kit/core':
         specifier: ^6.1.0
         version: 6.3.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -248,9 +260,6 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.1.3
         version: 1.2.16(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@relay/network-rules':
-        specifier: workspace:*
-        version: link:../../packages/network-rules
       '@tanstack/react-query':
         specifier: ^5.59.0
         version: 5.103.0(react@19.3.0)
@@ -318,28 +327,28 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.650.0
         version: 3.1133.0
-      '@relay/ai':
+      '@cadence/ai':
         specifier: workspace:*
         version: link:../../packages/ai
-      '@relay/config':
+      '@cadence/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@relay/connectors':
+      '@cadence/connectors':
         specifier: workspace:*
         version: link:../../packages/connectors
-      '@relay/db':
+      '@cadence/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@relay/domain':
+      '@cadence/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@relay/mail':
+      '@cadence/mail':
         specifier: workspace:*
         version: link:../../packages/mail
-      '@relay/network-rules':
+      '@cadence/network-rules':
         specifier: workspace:*
         version: link:../../packages/network-rules
-      '@relay/token-vault':
+      '@cadence/token-vault':
         specifier: workspace:*
         version: link:../../packages/token-vault
       bullmq:
@@ -388,10 +397,10 @@ importers:
       '@ai-sdk/openai':
         specifier: ^1.0.0
         version: 1.3.24(zod@3.25.76)
-      '@relay/config':
+      '@cadence/config':
         specifier: workspace:*
         version: link:../config
-      '@relay/db':
+      '@cadence/db':
         specifier: workspace:*
         version: link:../db
       ai:
@@ -441,19 +450,19 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.650.0
         version: 3.1133.0
-      '@relay/config':
+      '@cadence/config':
         specifier: workspace:*
         version: link:../config
-      '@relay/db':
+      '@cadence/db':
         specifier: workspace:*
         version: link:../db
-      '@relay/domain':
+      '@cadence/domain':
         specifier: workspace:*
         version: link:../domain
-      '@relay/network-rules':
+      '@cadence/network-rules':
         specifier: workspace:*
         version: link:../network-rules
-      '@relay/token-vault':
+      '@cadence/token-vault':
         specifier: workspace:*
         version: link:../token-vault
       bullmq:
@@ -484,15 +493,15 @@ importers:
 
   packages/db:
     dependencies:
+      '@cadence/config':
+        specifier: workspace:*
+        version: link:../config
       '@prisma/adapter-pg':
         specifier: ^6.19.3
         version: 6.19.3
       '@prisma/client':
         specifier: ^6.0.0
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
-      '@relay/config':
-        specifier: workspace:*
-        version: link:../config
       pg:
         specifier: ^8.13.0
         version: 8.23.0
@@ -521,10 +530,10 @@ importers:
 
   packages/domain:
     dependencies:
-      '@relay/db':
+      '@cadence/db':
         specifier: workspace:*
         version: link:../db
-      '@relay/entitlements':
+      '@cadence/entitlements':
         specifier: workspace:*
         version: link:../entitlements
       luxon:
@@ -561,7 +570,7 @@ importers:
 
   packages/mail:
     dependencies:
-      '@relay/config':
+      '@cadence/config':
         specifier: workspace:*
         version: link:../config
       pino:
@@ -596,10 +605,10 @@ importers:
       '@aws-sdk/client-kms':
         specifier: ^3.650.0
         version: 3.1133.0
-      '@relay/config':
+      '@cadence/config':
         specifier: workspace:*
         version: link:../config
-      '@relay/db':
+      '@cadence/db':
         specifier: workspace:*
         version: link:../db
       ioredis:
@@ -5680,6 +5689,13 @@ packages:
 
   typedarray@0.0.6:
     resolution: {integrity: sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA==}
+
+  typescript-eslint@8.70.0:
+    resolution: {integrity: sha512-P/W5cz70/cQAuKfY3xwQMWWTV7BvJ0mAQmi+9mBcsVPaBUpd6Ohpa+fECv9rBFrQcig86jAiNBFNWUqnTjr4pw==}
+    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    peerDependencies:
+      eslint: ^8.57.0 || ^9.0.0 || ^10.0.0
+      typescript: '>=4.8.4 <6.1.0'
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
@@ -11550,6 +11566,17 @@ snapshots:
       reflect.getprototypeof: 1.0.10
 
   typedarray@0.0.6: {}
+
+  typescript-eslint@8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3):
+    dependencies:
+      '@typescript-eslint/eslint-plugin': 8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+      '@typescript-eslint/parser': 8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+      '@typescript-eslint/typescript-estree': 8.70.0(typescript@5.9.3)
+      '@typescript-eslint/utils': 8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+      eslint: 9.39.5(jiti@2.7.0)
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - supports-color
 
   typescript@5.9.3: {}
 

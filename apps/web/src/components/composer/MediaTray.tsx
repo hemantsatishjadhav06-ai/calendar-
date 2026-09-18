@@ -39,7 +39,7 @@ export function MediaTray({ items, onChange, altMax = 1000, showCover, showUserT
   const onDragEnd = (e: DragEndEvent) => { if (!e.over || e.active.id === e.over.id) return; const ids = items.map(m => m.assetId); onChange(arrayMove(items, ids.indexOf(String(e.active.id)), ids.indexOf(String(e.over.id)))); };
 
   return (
-    <div onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); addFiles(Array.from(e.dataTransfer.files)); }}>
+    <div role="presentation" onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); addFiles(Array.from(e.dataTransfer.files)); }}>
       <div className="media-tray" role="list" aria-label="Attached media">
         <DndContext collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={items.map(m => m.assetId)} strategy={horizontalListSortingStrategy}>
@@ -73,7 +73,7 @@ function AltTextModal({ item, altMax, showCover, showUserTags, onClose, onSave }
   return (
     <Modal open onOpenChange={o => !o && onClose()} title="Media details" size="sm" footer={<><span style={{ flex: 1 }} /><button className="btn secondary" onClick={onClose}>Cancel</button><button className="btn primary" onClick={() => onSave({ altText: alt, cover: showCover && item.kind === 'video' ? { offsetMs: cover } : item.cover, userTags: showUserTags ? tags.split(',').map(s => s.trim().replace(/^@/, '')).filter(Boolean).map(username => ({ username, x: 0.5, y: 0.5 })) : item.userTags })}>Save</button></>}>
       <div className="stack">
-        {item.kind !== 'document' && <div style={{ borderRadius: 10, overflow: 'hidden', background: 'var(--bg-inset)' }}>{item.kind === 'video' ? <video src={item.previewUrl} controls style={{ width: '100%', maxHeight: 260 }} /> : <img src={item.previewUrl ?? item.thumbUrl} alt={alt} style={{ width: '100%', maxHeight: 260, objectFit: 'contain' }} />}</div>}
+        {item.kind !== 'document' && <div style={{ borderRadius: 10, overflow: 'hidden', background: 'var(--bg-inset)' }}>{item.kind === 'video' ? <video src={item.previewUrl} controls style={{ width: '100%', maxHeight: 260 }}><track kind="captions" /></video> : <img src={item.previewUrl ?? item.thumbUrl} alt={alt} style={{ width: '100%', maxHeight: 260, objectFit: 'contain' }} />}</div>}
         {item.kind !== 'video' && item.kind !== 'document' && (
           <div className="field"><label htmlFor="alt">Alt text <span className="subtle">({Array.from(alt).length}/{altMax})</span></label><textarea id="alt" className="textarea" value={alt} onChange={e => setAlt(e.target.value.slice(0, altMax))} placeholder="Describe the image for people who cannot see it" style={{ minHeight: 70 }} /><div className="row"><button className="btn secondary sm" disabled={gen} onClick={generate}>✦ {gen ? 'Generating…' : 'Generate with AI'}</button><span className="hint">Screen readers announce this text.</span></div></div>
         )}

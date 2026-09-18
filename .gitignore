@@ -18,3 +18,10 @@ packages/db/src/pothos-types.ts
 # redis dump
 dump.rdb
 **/dump.rdb
+
+# playwright output
+test-results
+playwright-report
+
+# tsc incremental build cache
+*.tsbuildinfo

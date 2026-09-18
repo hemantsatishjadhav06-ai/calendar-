@@ -1,5 +1,5 @@
-import { env } from '@relay/config';
-import { youtubeRules } from '@relay/network-rules';
+import { env } from '@cadence/config';
+import { youtubeRules } from '@cadence/network-rules';
 import type { SocialConnector, MediaRef, InboxItem } from '../types.js';
 import { createHmac } from 'node:crypto';
 import { ConnectorError, http, readJson, streamFromS3, chunkStream, chunks, firstLine, safeEqual, log } from '../shared/index.js';

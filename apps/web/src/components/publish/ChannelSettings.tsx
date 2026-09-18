@@ -50,7 +50,7 @@ export function ChannelSettings({ channel }: { channel: any }) {
 
       <section className="card" aria-labelledby="bulk"><h2 id="bulk" style={{ marginTop: 0, fontSize: 16 }}>Bulk upload</h2><p className="subtle">Schedule many posts from a CSV: columns <code>text, date (YYYY-MM-DD HH:mm, optional), media_url_1..4, alt_1..4, first_comment, tags</code>.</p><a className="btn secondary sm" href={`/channels/${channel.id}/bulk`}>Open bulk upload</a></section>
 
-      <section className="card" aria-labelledby="danger" style={{ borderColor: '#FECDCA' }}><h2 id="danger" style={{ marginTop: 0, fontSize: 16, color: 'var(--danger)' }}>Remove channel</h2><p className="subtle">Removes {channel.displayName} from Relay and cancels its scheduled posts. Published posts stay on the network.</p><button className="btn danger sm" onClick={() => setDel(true)}>Remove channel</button></section>
+      <section className="card" aria-labelledby="danger" style={{ borderColor: '#FECDCA' }}><h2 id="danger" style={{ marginTop: 0, fontSize: 16, color: 'var(--danger)' }}>Remove channel</h2><p className="subtle">Removes {channel.displayName} from Cadence and cancels its scheduled posts. Published posts stay on the network.</p><button className="btn danger sm" onClick={() => setDel(true)}>Remove channel</button></section>
       <Confirm open={del} onOpenChange={setDel} title={`Remove ${channel.displayName}?`} body={<p>Scheduled posts for this channel will be cancelled.</p>} confirmLabel="Remove" danger typed="REMOVE" onConfirm={() => remove.mutateAsync({ id: channel.id })} />
     </div>
   );

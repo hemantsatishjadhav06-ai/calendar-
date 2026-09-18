@@ -6,8 +6,8 @@ import express from 'express';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { z } from 'zod';
-import { env } from '@relay/config';
-import { publicRulesSummary } from '@relay/network-rules';
+import { env } from '@cadence/config';
+import { publicRulesSummary } from '@cadence/network-rules';
 
 async function gql(apiKey: string, query: string, variables?: Record<string, unknown>) {
   const r = await fetch(`${env.API_URL}/graphql`, { method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'content-type': 'application/json' }, body: JSON.stringify({ query, variables }) });
@@ -40,7 +40,7 @@ export function buildServer(apiKey: string) {
 const app = express(); app.use(express.json({ limit: '1mb' }));
 app.all('/mcp', async (req, res) => {
   const key = req.headers.authorization?.replace(/^Bearer\s+/i, '');
-  if (!key) return res.status(401).json({ error: 'Authorization: Bearer <Relay API key> required' });
+  if (!key) return res.status(401).json({ error: 'Authorization: Bearer <Cadence API key> required' });
   const server = buildServer(key);
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });   // stateless: one request = one session
   res.on('close', () => { transport.close(); server.close(); });

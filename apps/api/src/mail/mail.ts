@@ -1,1 +1,1 @@
-export { mail, render, type Template } from '@relay/mail';
+export { mail, render, type Template } from '@cadence/mail';

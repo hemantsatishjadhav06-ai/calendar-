@@ -1,8 +1,8 @@
 import { Worker, type Job } from 'bullmq';
 import { DateTime } from 'luxon';
-import { Prisma, prismaAdmin } from '@relay/db';
-import { getConnector, classifyError } from '@relay/connectors';
-import { tokenVault } from '@relay/token-vault';
+import { Prisma, prismaAdmin } from '@cadence/db';
+import { getConnector, classifyError } from '@cadence/connectors';
+import { tokenVault } from '@cadence/token-vault';
 import { connection, queue, log } from './infra.js';
 
 /**
@@ -11,7 +11,7 @@ import { connection, queue, log } from './infra.js';
  *  channel-daily           collect channel metrics (since last cursor − 3 days) + weekly audience
  *  bootstrap               first pull for a freshly published post, then re-enqueue at 2h, 6h, 24h, 48h, 72h
  *  refresh-recent-posts    every 6h → post metrics for posts < 30d (daily), < 90d (weekly), < 365d (monthly)
- *  discover-native-posts   daily → import posts published outside Relay so Insights is complete
+ *  discover-native-posts   daily → import posts published outside Cadence so Insights is complete
  *  backfill                after connect → 90 days of channel metrics + last 50 posts
  */
 export function metricsWorker() {
@@ -142,7 +142,7 @@ async function discover(ch: any) {
   const known = new Set((await prismaAdmin.postTarget.findMany({ where: { channelId: ch.id, externalPostId: { in: recent.map(r => r.externalId) } }, select: { externalPostId: true } })).map(x => x.externalPostId));
   let created = 0;
   for (const r of recent.filter(r => !known.has(r.externalId))) {
-    // Match a NOTIFIED/PUBLISHED-without-id Relay target by time window + text similarity, else create a "discovered" post
+    // Match a NOTIFIED/PUBLISHED-without-id Cadence target by time window + text similarity, else create a "discovered" post
     const candidate = await prismaAdmin.postTarget.findFirst({ where: { channelId: ch.id, externalPostId: null, status: { in: ['NOTIFIED', 'PUBLISHED'] }, dueAt: { gte: new Date(r.createdAt.getTime() - 6 * 3600_000), lte: new Date(r.createdAt.getTime() + 6 * 3600_000) } } });
     if (candidate && similar(candidate.text, r.text ?? '')) { await prismaAdmin.postTarget.update({ where: { id: candidate.id }, data: { status: 'PUBLISHED', publishedAt: r.createdAt, externalPostId: r.externalId, externalUrl: r.url } }); continue; }
     const post = await prismaAdmin.post.create({ data: { organizationId: ch.organizationId, createdByAccountId: ch.connectedByAccountId, status: 'PUBLISHED', scheduleMode: 'NOW', baseText: r.text ?? '', baseMedia: [] } });

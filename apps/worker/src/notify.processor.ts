@@ -1,6 +1,6 @@
 import { Worker, type Job } from 'bullmq';
-import { Prisma, prismaAdmin } from '@relay/db';
-import { env } from '@relay/config';
+import { Prisma, prismaAdmin } from '@cadence/db';
+import { env } from '@cadence/config';
 import { connection, queue, emit, WORKER_ID } from './infra.js';
 import { sendMail } from './mail.js';
 import { rollupPostStatus } from './publish.processor.js';

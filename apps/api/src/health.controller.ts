@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { prismaApp } from '@relay/db';
+import { prismaApp } from '@cadence/db';
 import { RedisService } from './infra/redis.service.js';
 
 @Controller()

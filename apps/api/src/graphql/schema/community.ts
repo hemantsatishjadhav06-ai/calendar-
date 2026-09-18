@@ -1,9 +1,9 @@
 import { builder } from '../builder.js';
 import { CommentKindEnum } from './enums.js';
-import { prismaAdmin } from '@relay/db';
-import { assertCan, can, DomainError } from '@relay/domain';
-import { getConnector } from '@relay/connectors';
-import { tokenVault } from '@relay/token-vault';
+import { prismaAdmin } from '@cadence/db';
+import { assertCan, can, DomainError } from '@cadence/domain';
+import { getConnector } from '@cadence/connectors';
+import { tokenVault } from '@cadence/token-vault';
 import { events } from '../../events/events.bus.js';
 import { QueuesService } from '../../infra/queues.service.js';
 

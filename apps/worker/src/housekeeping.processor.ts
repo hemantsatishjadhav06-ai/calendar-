@@ -1,9 +1,9 @@
 import { Worker, type Job } from 'bullmq';
-import { prismaAdmin } from '@relay/db';
-import { getConnector } from '@relay/connectors';
-import { tokenVault } from '@relay/token-vault';
-import { QueueOps } from '@relay/domain';
-import { env } from '@relay/config';
+import { prismaAdmin } from '@cadence/db';
+import { getConnector } from '@cadence/connectors';
+import { tokenVault } from '@cadence/token-vault';
+import { QueueOps } from '@cadence/domain';
+import { env } from '@cadence/config';
 import { connection, log, emit } from './infra.js';
 import { sendMail } from './mail.js';
 

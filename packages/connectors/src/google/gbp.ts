@@ -1,4 +1,4 @@
-import { gbpRules } from '@relay/network-rules';
+import { gbpRules } from '@cadence/network-rules';
 import type { SocialConnector, MediaRef, InboxItem } from '../types.js';
 import { ConnectorError, http, readJson, mediaUrl, ymd, hm } from '../shared/index.js';
 import { googleAuthUrl, googleToken, gget, gpost, gdel, gErr } from './google-oauth.js';

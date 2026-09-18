@@ -1,5 +1,5 @@
-import type { Network } from '@relay/db';
-import { env } from '@relay/config';
+import type { Network } from '@cadence/db';
+import { env } from '@cadence/config';
 import type { SocialConnector } from './types.js';
 import { facebook } from './meta/facebook.js';
 import { instagram } from './meta/instagram.js';

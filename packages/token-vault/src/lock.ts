@@ -1,6 +1,6 @@
 import { Redis } from 'ioredis';
 import { randomBytes } from 'node:crypto';
-import { env } from '@relay/config';
+import { env } from '@cadence/config';
 
 let redis: Redis | undefined;
 export const vaultRedis = () => (redis ??= new Redis(env.REDIS_URL, { maxRetriesPerRequest: null }));

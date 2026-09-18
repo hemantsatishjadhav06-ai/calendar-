@@ -1,6 +1,6 @@
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Queue } from 'bullmq';
-import { env } from '@relay/config';
+import { env } from '@cadence/config';
 
 export const QUEUE_NAMES = ['publish', 'notify', 'media', 'metrics', 'inbox', 'ai', 'mail', 'reports', 'dispatcher', 'housekeeping'] as const;
 export type QueueName = (typeof QUEUE_NAMES)[number];

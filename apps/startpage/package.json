@@ -1,5 +1,5 @@
 {
-  "name": "@relay/startpage",
+  "name": "@cadence/startpage",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@relay/config": "workspace:*",
-    "@relay/db": "workspace:*",
+    "@cadence/config": "workspace:*",
+    "@cadence/db": "workspace:*",
     "hono": "^4.6.3",
     "@hono/node-server": "^1.13.1",
     "ioredis": "^5.4.1"

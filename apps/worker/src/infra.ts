@@ -1,7 +1,7 @@
 import { Redis } from 'ioredis';
 import { Queue } from 'bullmq';
 import pino from 'pino';
-import { env } from '@relay/config';
+import { env } from '@cadence/config';
 
 export const log = pino({ name: 'worker', level: process.env.LOG_LEVEL ?? 'info' });
 export const connection = { url: env.REDIS_URL } as any;

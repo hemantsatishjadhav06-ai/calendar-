@@ -1,6 +1,6 @@
 import { builder } from '../builder.js';
-import { prismaAdmin } from '@relay/db';
-import { entitlement, DomainError } from '@relay/domain';
+import { prismaAdmin } from '@cadence/db';
+import { entitlement, DomainError } from '@cadence/domain';
 import { AuthService } from '../../auth/auth.service.js';
 
 const auth = new AuthService();

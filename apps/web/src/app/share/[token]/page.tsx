@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Shared post · Relay',
+  title: 'Shared post · Cadence',
   robots: { index: false, follow: false },
 };
 
@@ -34,8 +34,8 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     <main id="main" style={{ minHeight: '100dvh', background: 'var(--bg, #faf9f7)', padding: '32px 16px' }}>
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
         <header style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
-          <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: '#6DB44F', color: '#0b1b0b', fontWeight: 800 }}>R</span>
-          <b style={{ fontSize: 15 }}>Relay</b>
+          <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 8, background: '#6DB44F', color: '#0b1b0b', fontWeight: 800 }}>C</span>
+          <b style={{ fontSize: 15 }}>Cadence</b>
           {data?.org && <span className="subtle" style={{ marginLeft: 'auto' }}>Shared from {data.org}</span>}
         </header>
 
@@ -98,7 +98,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
             </div>
 
             <p className="subtle" style={{ textAlign: 'center', marginTop: 22, fontSize: 12 }}>
-              This is a read-only preview shared via Relay. Content may still change before it's published.
+              This is a read-only preview shared via Cadence. Content may still change before it's published.
             </p>
           </>
         )}

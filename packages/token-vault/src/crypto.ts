@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { KMSClient, GenerateDataKeyCommand, DecryptCommand } from '@aws-sdk/client-kms';
-import { env } from '@relay/config';
+import { env } from '@cadence/config';
 
 /** AES-256-GCM: [12-byte iv][16-byte tag][ciphertext] */
 export function seal(plain: string, dek: Buffer): Buffer {

@@ -36,7 +36,7 @@ export default function CreatePage() {
           <div className="grid" style={{ gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))' }}>{list.map(i => <IdeaCard key={i.id} idea={i} onEdit={() => setEditing(i)} onPost={() => open({ prefill: { text: i.body, media: i.media, ideaId: i.id } })} onDelete={() => del.mutate({ id: i.id })} />)}</div>
         )}
       </main>
-      {editing && <IdeaModal idea={editing} groups={groups} tags={tags.data?.tags ?? []} onClose={() => setEditing(null)} onSave={(input: any) => { editing.id ? update.mutate({ id: editing.id, input }) : create.mutate({ input }); setEditing(null); }} />}
+      {editing && <IdeaModal idea={editing} groups={groups} tags={tags.data?.tags ?? []} onClose={() => setEditing(null)} onSave={(input: any) => { if (editing.id) update.mutate({ id: editing.id, input }); else create.mutate({ input }); setEditing(null); }} />}
       {genOpen && <GenerateModal onClose={() => setGenOpen(false)} onSave={body => create.mutate({ input: { body, aiGenerated: true } })} />}
     </>
   );
@@ -74,7 +74,7 @@ function IdeaModal({ idea, groups, tags, onClose, onSave }: any) {
       <div className="field"><label htmlFor="it">Title (optional)</label><input id="it" className="input" value={title} onChange={e => setTitle(e.target.value)} /></div>
       <div className="field"><label htmlFor="ib">Idea</label><textarea id="ib" className="textarea" value={body} onChange={e => setBody(e.target.value)} placeholder="Notes, a caption draft, a link…" /></div>
       <MediaTray items={media} onChange={setMedia} />
-      <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', marginTop: 10 }}><div className="field"><label htmlFor="ig">Group</label><select id="ig" className="select" value={groupId} onChange={e => setGroupId(e.target.value)}><option value="">Unsorted</option>{groups.filter((g: any) => g.id).map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></div><div className="field"><label>Tags</label><div className="row" style={{ flexWrap: 'wrap', gap: 4 }}>{tags.map((t: any) => <button key={t.id} className={`tag ${tagIds.includes(t.id) ? 'brand' : ''}`} style={{ border: 0, cursor: 'pointer' }} aria-pressed={tagIds.includes(t.id)} onClick={() => setTagIds(x => (x.includes(t.id) ? x.filter(i => i !== t.id) : [...x, t.id]))}>{t.name}</button>)}</div></div></div>
+      <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', marginTop: 10 }}><div className="field"><label htmlFor="ig">Group</label><select id="ig" className="select" value={groupId} onChange={e => setGroupId(e.target.value)}><option value="">Unsorted</option>{groups.filter((g: any) => g.id).map((g: any) => <option key={g.id} value={g.id}>{g.name}</option>)}</select></div><div className="field"><span className="group-label">Tags</span><div className="row" role="group" aria-label="Tags" style={{ flexWrap: 'wrap', gap: 4 }}>{tags.map((t: any) =><button key={t.id} className={`tag ${tagIds.includes(t.id) ? 'brand' : ''}`} style={{ border: 0, cursor: 'pointer' }} aria-pressed={tagIds.includes(t.id)} onClick={() => setTagIds(x => (x.includes(t.id) ? x.filter(i => i !== t.id) : [...x, t.id]))}>{t.name}</button>)}</div></div></div>
     </Modal>
   );
 }

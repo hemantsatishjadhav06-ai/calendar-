@@ -1,5 +1,6 @@
 'use client';
 import { Suspense, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { TopBar } from '@/components/shell/TopBar';
 import { rest } from '@/lib/api';
@@ -20,12 +21,12 @@ function SelectInner() {
     <>
       <TopBar title={`Connect ${NETWORK_LABEL[network] ?? network}`} />
       <main className="content" id="main" style={{ maxWidth: 640 }}>
-        {error && <div className="banner danger" role="alert">{error} <a href="/channels/connect">Try again</a></div>}
+        {error && <div className="banner danger" role="alert">{error} <Link href="/channels/connect">Try again</Link></div>}
         {!data && !error && <div className="skeleton" style={{ height: 160 }} />}
         {data && <>
           <p>Choose what to connect. Each item becomes its own channel with its own queue and analytics.</p>
           <div className="stack">{data.candidates.map((c: any) => <label key={c.externalId} className="card row" style={{ cursor: c.alreadyConnected ? 'default' : 'pointer', opacity: c.alreadyConnected ? .6 : 1 }}><input type="checkbox" disabled={c.alreadyConnected} checked={sel.includes(c.externalId)} onChange={e => setSel(s => (e.target.checked ? [...s, c.externalId] : s.filter(x => x !== c.externalId)))} /><Avatar src={c.avatarUrl} name={c.displayName} network={c.network} /><div style={{ flex: 1 }}><b>{c.displayName}</b><div className="subtle">{NETWORK_LABEL[c.network]} · {c.subtype}{c.handle ? ` · ${c.handle}` : ''}</div></div>{c.alreadyConnected && <span className="tag">Already connected</span>}</label>)}</div>
-          <div className="row" style={{ marginTop: 16, justifyContent: 'flex-end' }}><a className="btn secondary" href="/channels">Cancel</a><button className="btn primary" disabled={!sel.length || busy} onClick={connect}>{busy ? 'Connecting…' : `Connect ${sel.length || ''}`}</button></div>
+          <div className="row" style={{ marginTop: 16, justifyContent: 'flex-end' }}><Link className="btn secondary" href="/channels">Cancel</Link><button className="btn primary" disabled={!sel.length || busy} onClick={connect}>{busy ? 'Connecting…' : `Connect ${sel.length || ''}`}</button></div>
         </>}
       </main>
     </>

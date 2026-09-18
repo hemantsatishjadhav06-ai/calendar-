@@ -1,7 +1,7 @@
 import { builder } from '../builder.js';
-import { prismaAdmin } from '@relay/db';
-import { DomainError } from '@relay/domain';
-import { env } from '@relay/config';
+import { prismaAdmin } from '@cadence/db';
+import { DomainError } from '@cadence/domain';
+import { env } from '@cadence/config';
 
 builder.prismaObject('StartPage', {
   fields: t => ({

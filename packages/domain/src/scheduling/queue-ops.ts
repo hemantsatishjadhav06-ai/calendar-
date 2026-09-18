@@ -1,4 +1,4 @@
-import type { Prisma, PrismaClient } from '@relay/db';
+import type { Prisma, PrismaClient } from '@cadence/db';
 import { assignQueue } from './slots.js';
 
 type Db = PrismaClient | Prisma.TransactionClient;

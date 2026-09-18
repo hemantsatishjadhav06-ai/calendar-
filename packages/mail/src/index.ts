@@ -1,4 +1,4 @@
-import { env } from '@relay/config';
+import { env } from '@cadence/config';
 import pino from 'pino';
 
 const log = pino({ name: 'mail' });
@@ -6,7 +6,7 @@ const log = pino({ name: 'mail' });
 export type Template = 'invite' | 'approval_requested' | 'approval_decided' | 'post_failed' | 'channel_reconnect' | 'notify_me' | 'digest_comments' | 'empty_queue' | 'verify_email' | 'password_reset' | 'trial_ending' | 'payment_failed';
 
 const subjects: Record<Template, (d: any) => string> = {
-  invite: d => `${d.inviter} invited you to ${d.orgName} on Relay`,
+  invite: d => `${d.inviter} invited you to ${d.orgName} on Cadence`,
   approval_requested: d => `Post awaiting your approval: ${d.preview}`,
   approval_decided: d => `Your post was ${String(d.decision).toLowerCase()}`,
   post_failed: d => `A post to ${d.channel} failed to publish`,
@@ -16,7 +16,7 @@ const subjects: Record<Template, (d: any) => string> = {
   empty_queue: d => `${d.channel}'s queue is empty`,
   verify_email: () => 'Verify your email',
   password_reset: () => 'Reset your password',
-  trial_ending: d => `Your Relay trial ends in ${d.days} days`,
+  trial_ending: d => `Your Cadence trial ends in ${d.days} days`,
   payment_failed: () => 'We could not process your payment',
 };
 
@@ -32,14 +32,14 @@ const bodies: Record<Template, (d: any) => string> = {
   notify_me: d => `<p>Your reminder for <b>${esc(d.channel)}</b> is ready. Open it to copy the caption and download the media.</p>${btn(d.url, 'Open reminder')}`,
   digest_comments: d => `<p>You have <b>${esc(d.count)}</b> unanswered comments across your channels.</p>${btn(d.url, 'Open Community')}`,
   empty_queue: d => `<p>The queue for <b>${esc(d.channel)}</b> is empty. Add posts to keep your schedule full.</p>${btn(d.url, 'Add posts')}`,
-  verify_email: d => `<p>Confirm your email to finish setting up Relay.</p>${btn(d.url, 'Verify email')}`,
+  verify_email: d => `<p>Confirm your email to finish setting up Cadence.</p>${btn(d.url, 'Verify email')}`,
   password_reset: d => `<p>Use the link below to choose a new password. It expires in one hour.</p>${btn(d.url, 'Reset password')}`,
   trial_ending: d => `<p>Your Team trial ends in ${esc(d.days)} days. Add a payment method to keep approvals, permissions and branded reports.</p>${btn(d.url, 'Manage billing')}`,
   payment_failed: d => `<p>Your latest payment did not go through. Update your card to avoid interruptions.</p>${btn(d.url, 'Update payment method')}`,
 };
 
 export function render(template: Template, d: any) {
-  return { subject: subjects[template](d), html: `<!doctype html><html><body style="font-family:Inter,Segoe UI,Arial,sans-serif;color:#1F1D1A;max-width:560px;margin:0 auto;padding:24px;line-height:1.5"><h2 style="margin-top:0">Relay</h2>${bodies[template](d)}<p style="color:#8C877D;font-size:12px;margin-top:32px">You receive this because you use Relay. Manage notifications in Settings → Notifications.</p></body></html>` };
+  return { subject: subjects[template](d), html: `<!doctype html><html><body style="font-family:Inter,Segoe UI,Arial,sans-serif;color:#1F1D1A;max-width:560px;margin:0 auto;padding:24px;line-height:1.5"><h2 style="margin-top:0">Cadence</h2>${bodies[template](d)}<p style="color:#8C877D;font-size:12px;margin-top:32px">You receive this because you use Cadence. Manage notifications in Settings → Notifications.</p></body></html>` };
 }
 
 export const mail = {

@@ -1,11 +1,11 @@
 import { Body, Controller, Get, Headers, Post, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import type Stripe from 'stripe';
-import { prismaAdmin } from '@relay/db';
-import { assertCan } from '@relay/domain';
+import { prismaAdmin } from '@cadence/db';
+import { assertCan } from '@cadence/domain';
 import { BillingService } from './billing.service.js';
 import { requireTenant } from '../auth/session.middleware.js';
-import { monthlyPriceCents } from '@relay/entitlements';
+import { monthlyPriceCents } from '@cadence/entitlements';
 
 @Controller()
 export class StripeController {

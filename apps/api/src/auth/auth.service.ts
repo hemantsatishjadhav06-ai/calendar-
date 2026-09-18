@@ -2,10 +2,10 @@ import { Injectable } from '@nestjs/common';
 import argon2 from 'argon2';
 import { authenticator } from 'otplib';
 import { createHash, randomBytes } from 'node:crypto';
-import { prismaAdmin, type Account } from '@relay/db';
-import { env } from '@relay/config';
-import { DomainError } from '@relay/domain';
-import { keyProvider, seal, open } from '@relay/token-vault';
+import { prismaAdmin, type Account } from '@cadence/db';
+import { env } from '@cadence/config';
+import { DomainError } from '@cadence/domain';
+import { keyProvider, seal, open } from '@cadence/token-vault';
 
 const SESSION_TTL_MS = 30 * 864e5;
 
@@ -55,7 +55,7 @@ export class AuthService {
     const { plaintext: dek, wrapped } = await keyProvider().generateDataKey(`totp:${accountId}`);
     const enc = Buffer.concat([Buffer.from([wrapped.length >> 8, wrapped.length & 255]), wrapped, seal(secret, dek)]);
     await prismaAdmin.account.update({ where: { id: accountId }, data: { totpSecretEnc: enc, totpEnabledAt: null } });
-    return { secret, otpauth: authenticator.keyuri(account.email, 'Relay', secret) };
+    return { secret, otpauth: authenticator.keyuri(account.email, 'Cadence', secret) };
   }
   private async totpSecret(account: Account) {
     if (!account.totpSecretEnc) return null;

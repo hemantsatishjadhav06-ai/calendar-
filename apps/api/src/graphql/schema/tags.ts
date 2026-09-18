@@ -1,6 +1,6 @@
 import { builder } from '../builder.js';
-import { entitlement } from '@relay/domain';
-import { within } from '@relay/entitlements';
+import { entitlement } from '@cadence/domain';
+import { within } from '@cadence/entitlements';
 
 export const TagType = builder.prismaObject('Tag', { fields: t => ({ id: t.exposeID('id'), name: t.exposeString('name'), color: t.exposeString('color'), postCount: t.relationCount('posts') }) });
 builder.prismaObject('HashtagGroup', { fields: t => ({ id: t.exposeID('id'), name: t.exposeString('name'), hashtags: t.exposeStringList('hashtags') }) });

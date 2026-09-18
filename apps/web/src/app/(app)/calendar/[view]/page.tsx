@@ -1,5 +1,5 @@
 'use client';
-import { Fragment, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { DateTime } from 'luxon';
 import { DndContext, useDraggable, useDroppable, type DragEndEvent } from '@dnd-kit/core';
@@ -54,21 +54,30 @@ export default function CalendarPage() {
         <DndContext onDragEnd={onDragEnd}>
           {isWeek ? (
             <div className="cal-grid" role="grid" aria-label="Week view">
-              <div className="hd" />{days.map(d => <div key={d.toISODate()} className={`hd ${d.hasSame(DateTime.now(), 'day') ? 'today' : ''}`} role="columnheader">{d.toFormat('ccc d')}</div>)}
-              {Array.from({ length: 24 }, (_, h) => (<Fragment key={h}>
-                <div className="hour">{String(h).padStart(2, '0')}:00</div>
-                {days.map(d => <Cell key={`${d.toISODate()}T${h}`} id={`${d.toISODate()}T${h}`} onCreate={() => open({ dueAt: d.set({ hour: h, minute: 0 }).toUTC().toISO()!, mode: 'CUSTOM' })}>{(byDay.get(d.toISODate()!) ?? []).filter(t => DateTime.fromISO(t.publishedAt ?? t.dueAt).setZone(zone).hour === h).map(t => <Chip key={t.id} t={t} zone={zone} onOpen={() => open({ postId: t.postId })} />)}</Cell>)}
-              </Fragment>))}
+              {/* role="row" wrappers with display:contents give a valid grid>row>cell ARIA tree without disturbing the CSS grid layout */}
+              <div role="row" style={{ display: 'contents' }}>
+                <div className="hd" role="columnheader" aria-label="Time" />{days.map(d => <div key={d.toISODate()} className={`hd ${d.hasSame(DateTime.now(), 'day') ? 'today' : ''}`} role="columnheader">{d.toFormat('ccc d')}</div>)}
+              </div>
+              {Array.from({ length: 24 }, (_, h) => (
+                <div key={h} role="row" style={{ display: 'contents' }}>
+                  <div className="hour" role="rowheader">{String(h).padStart(2, '0')}:00</div>
+                  {days.map(d => <Cell key={`${d.toISODate()}T${h}`} id={`${d.toISODate()}T${h}`} onCreate={() => open({ dueAt: d.set({ hour: h, minute: 0 }).toUTC().toISO()!, mode: 'CUSTOM' })}>{(byDay.get(d.toISODate()!) ?? []).filter(t => DateTime.fromISO(t.publishedAt ?? t.dueAt).setZone(zone).hour === h).map(t => <Chip key={t.id} t={t} zone={zone} onOpen={() => open({ postId: t.postId })} />)}</Cell>)}
+                </div>
+              ))}
             </div>
           ) : (
             <div className="month-grid" role="grid" aria-label="Month view">
-              {days.slice(0, 7).map(d => <div key={d.toISODate()} className="hd" style={{ background: 'var(--bg-surface)', padding: 6, fontSize: 12, textAlign: 'center' }} role="columnheader">{d.toFormat('ccc')}</div>)}
-              {days.map(d => { const list = byDay.get(d.toISODate()!) ?? []; return (
-                <Cell key={d.toISODate()} id={d.toISODate()!} className={`month-cell ${d.month !== anchor.month ? 'other' : ''}`} onCreate={() => open({ dueAt: d.set({ hour: 10 }).toUTC().toISO()!, mode: 'CUSTOM' })}>
-                  <div className="d" style={d.hasSame(DateTime.now(), 'day') ? { color: 'var(--green-700)', fontWeight: 700 } : {}}>{d.day}</div>
-                  {list.slice(0, 3).map(t => <Chip key={t.id} t={t} zone={zone} onOpen={() => open({ postId: t.postId })} />)}
-                  {list.length > 3 && <button className="btn ghost sm" style={{ padding: '0 4px', fontSize: 11 }} onClick={() => { setAnchor(d); router.push('/calendar/week'); }}>+{list.length - 3} more</button>}
-                </Cell>); })}
+              <div role="row" style={{ display: 'contents' }}>{days.slice(0, 7).map(d => <div key={d.toISODate()} className="hd" style={{ background: 'var(--bg-surface)', padding: 6, fontSize: 12, textAlign: 'center' }} role="columnheader">{d.toFormat('ccc')}</div>)}</div>
+              {Array.from({ length: Math.ceil(days.length / 7) }, (_, w) => (
+                <div key={w} role="row" style={{ display: 'contents' }}>
+                  {days.slice(w * 7, w * 7 + 7).map(d => { const list = byDay.get(d.toISODate()!) ?? []; return (
+                    <Cell key={d.toISODate()} id={d.toISODate()!} className={`month-cell ${d.month !== anchor.month ? 'other' : ''}`} onCreate={() => open({ dueAt: d.set({ hour: 10 }).toUTC().toISO()!, mode: 'CUSTOM' })}>
+                      <div className="d" style={d.hasSame(DateTime.now(), 'day') ? { color: 'var(--green-700)', fontWeight: 700 } : {}}>{d.day}</div>
+                      {list.slice(0, 3).map(t => <Chip key={t.id} t={t} zone={zone} onOpen={() => open({ postId: t.postId })} />)}
+                      {list.length > 3 && <button className="btn ghost sm" style={{ padding: '0 4px', fontSize: 11 }} onClick={() => { setAnchor(d); router.push('/calendar/week'); }}>+{list.length - 3} more</button>}
+                    </Cell>); })}
+                </div>
+              ))}
             </div>
           )}
         </DndContext>
@@ -81,7 +90,7 @@ function startOfWeek(d: DateTime, weekStart: number) { const wd = d.weekday % 7;
 
 function Cell({ id, children, onCreate, className = 'cell' }: { id: string; children: React.ReactNode; onCreate: () => void; className?: string }) {
   const { setNodeRef, isOver } = useDroppable({ id });
-  return <div ref={setNodeRef} className={className} role="gridcell" style={isOver ? { background: 'var(--green-50)' } : undefined} onDoubleClick={onCreate}>{children}</div>;
+  return <div ref={setNodeRef} className={className} role="gridcell" tabIndex={0} style={isOver ? { background: 'var(--green-50)' } : undefined} onDoubleClick={onCreate}>{children}</div>;
 }
 function Chip({ t, zone, onOpen }: { t: any; zone: string; onOpen: () => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: t.id, disabled: t.status === 'PUBLISHED' });

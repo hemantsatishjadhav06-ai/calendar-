@@ -1,8 +1,8 @@
 import { customAlphabet } from 'nanoid';
-import { prismaAdmin, type Channel } from '@relay/db';
-import { env } from '@relay/config';
-import { extractUrls, unique } from '@relay/domain';
-import { keyProvider, open } from '@relay/token-vault';
+import { prismaAdmin, type Channel } from '@cadence/db';
+import { env } from '@cadence/config';
+import { extractUrls, unique } from '@cadence/domain';
+import { keyProvider, open } from '@cadence/token-vault';
 
 const slugId = customAlphabet('23456789abcdefghjkmnpqrstuvwxyz', 7);
 const NO_SHORTEN_NETWORKS = new Set(['PINTEREST', 'GOOGLE_BUSINESS']);

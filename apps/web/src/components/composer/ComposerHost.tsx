@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { useQueryClient } from '@tanstack/react-query';
 import { Sparkles, LayoutTemplate, StickyNote, X as CloseIcon, ChevronDown, Hash } from 'lucide-react';
-import { rulesFor, validateTarget, type Issue } from '@relay/network-rules';
+import { rulesFor, validateTarget, type Issue } from '@cadence/network-rules';
 import { useComposer } from './store';
 import { useChannels, useMe, useTags } from '@/lib/hooks';
 import { gqlRequest } from '@/lib/api';

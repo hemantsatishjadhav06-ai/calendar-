@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Providers } from './providers';
 
-export const metadata: Metadata = { title: 'Relay', description: 'Plan, publish and grow on every social channel.' };
+export const metadata: Metadata = { title: 'Cadence', description: 'Plan, publish and grow on every social channel.' };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

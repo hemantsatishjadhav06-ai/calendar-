@@ -5,7 +5,8 @@
   --blue-500:#2C4BFF; --purple-500:#7C3AED; --red-500:#D92D20; --orange-500:#F79009; --yellow-400:#FAC515; --teal-500:#0E9384;
   --sand-0:#FFFFFF; --sand-25:#FCFBF9; --sand-50:#F7F5F1; --sand-100:#EFECE6; --sand-200:#E2DED6; --sand-300:#CFCAC0; --sand-500:#8C877D; --sand-700:#4F4B44; --sand-900:#1F1D1A;
   --bg-app:var(--sand-25); --bg-surface:var(--sand-0); --bg-subtle:var(--sand-50); --bg-inset:var(--sand-100);
-  --fg:var(--sand-900); --fg-muted:var(--sand-700); --fg-subtle:var(--sand-500); --border:var(--sand-200); --border-strong:var(--sand-300);
+  /* --fg-subtle darkened from --sand-500 (#8C877D, 3.45:1) to meet WCAG AA (4.5:1) on the light background */
+  --fg:var(--sand-900); --fg-muted:var(--sand-700); --fg-subtle:#6B665C; --border:var(--sand-200); --border-strong:var(--sand-300);
   --fill-brand:var(--green-500); --fill-brand-hover:var(--green-600); --on-brand:#0B1F0B; --focus:var(--blue-500);
   --danger:var(--red-500); --warning:var(--orange-500); --success:var(--green-600); --info:var(--blue-500);
   --net-FACEBOOK:#1877F2; --net-INSTAGRAM:#E1306C; --net-THREADS:#000; --net-X:#000; --net-LINKEDIN:#0A66C2; --net-TIKTOK:#000; --net-YOUTUBE:#FF0000; --net-PINTEREST:#E60023; --net-GOOGLE_BUSINESS:#4285F4; --net-BLUESKY:#1185FE; --net-MASTODON:#6364FF; --net-START_PAGE:#6DB44F;
@@ -91,11 +92,12 @@ button,input,textarea,select{font:inherit;color:inherit}
 .textarea{resize:vertical;min-height:96px;line-height:1.5}
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
 .field label{font-weight:600;font-size:var(--text-sm)}
+.field .group-label{font-weight:600;font-size:var(--text-sm)}
 .field .hint{font-size:var(--text-xs);color:var(--fg-subtle)}
 .field .error{font-size:var(--text-xs);color:var(--danger)}
 .card{background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow-sm)}
 .tag{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:var(--radius-pill);background:var(--bg-inset);color:var(--fg-muted)}
-.tag.brand{background:var(--green-100);color:var(--green-700)}
+.tag.brand{background:var(--green-100);color:#35701F} /* darker than --green-700 to meet WCAG AA (4.5:1) on --green-100 */
 .tag.warn{background:#FEF0C7;color:#93370D}
 .tag.danger{background:#FEE4E2;color:#912018}
 .tag.info{background:#E0E7FF;color:#3538CD}

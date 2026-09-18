@@ -1,6 +1,6 @@
 import { Worker, type Job } from 'bullmq';
-import { prismaAdmin } from '@relay/db';
-import { embedText } from '@relay/ai';
+import { prismaAdmin } from '@cadence/db';
+import { embedText } from '@cadence/ai';
 import { connection } from './infra.js';
 
 /** Background AI jobs: comment embeddings for "similar replies", weekly takeaways precompute. */

@@ -1,5 +1,5 @@
 import { Worker } from 'bullmq';
-import { prismaAdmin } from '@relay/db';
+import { prismaAdmin } from '@cadence/db';
 import { connection, queue, log } from './infra.js';
 
 const LOOKAHEAD_MS = 15 * 60_000;

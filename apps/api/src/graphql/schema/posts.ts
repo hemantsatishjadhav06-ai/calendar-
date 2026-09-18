@@ -1,8 +1,8 @@
 import { builder } from '../builder.js';
 import { PostStatusEnum, ScheduleModeEnum, SchedulingTypeEnum, Issue, AccountSummary } from './enums.js';
 import { PostsService } from '../../posts/posts.service.js';
-import { prismaAdmin } from '@relay/db';
-import { env } from '@relay/config';
+import { prismaAdmin } from '@cadence/db';
+import { env } from '@cadence/config';
 import { fetchPreview } from '../../links/preview.service.js';
 import { makeShareToken } from '../../share/share.token.js';
 import { TagType } from './tags.js';
