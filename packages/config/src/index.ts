@@ -56,7 +56,7 @@ const schema = z.object({
   STRIPE_SECRET_KEY: optional, STRIPE_WEBHOOK_SECRET: optional,
   STRIPE_PRICE_ESSENTIALS_MONTHLY: optional, STRIPE_PRICE_ESSENTIALS_YEARLY: optional, STRIPE_PRICE_TEAM_MONTHLY: optional, STRIPE_PRICE_TEAM_YEARLY: optional,
   AI_PROVIDER: z.enum(['openai', 'anthropic']).default('openai'), OPENAI_API_KEY: optional, ANTHROPIC_API_KEY: optional,
-  UNSPLASH_ACCESS_KEY: optional, GIPHY_API_KEY: optional, CANVA_CLIENT_ID: optional, CANVA_CLIENT_SECRET: optional, DROPBOX_APP_KEY: optional,
+  UNSPLASH_ACCESS_KEY: optional, PEXELS_API_KEY: optional, GIPHY_API_KEY: optional, CANVA_CLIENT_ID: optional, CANVA_CLIENT_SECRET: optional, DROPBOX_APP_KEY: optional,
   BITLY_CLIENT_ID: optional, BITLY_CLIENT_SECRET: optional, MAILCHIMP_CLIENT_ID: optional, MAILCHIMP_CLIENT_SECRET: optional,
   RESEND_API_KEY: optional, MAIL_FROM: z.string().default('Cadence <no-reply@relay.local>'),
   SENTRY_DSN: optional, OTEL_EXPORTER_OTLP_ENDPOINT: optional, WORKOS_API_KEY: optional, WORKOS_CLIENT_ID: optional,
