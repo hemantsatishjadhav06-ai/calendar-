@@ -13,11 +13,15 @@ export function tenantClient(base: PrismaClient, organizationId: string) {
     query: {
       $allModels: {
         async $allOperations({ args, query }) {
-          return base.$transaction(async tx => {
-            await tx.$executeRaw`SELECT set_config('app.org_id', ${organizationId}, true)`;
-            // Prisma routes `query` to the interactive transaction when called within $transaction callback
-            return (query as any)(args);
-          });
+          // set_config and the operation MUST run on the same connection, so batch them in one
+          // transaction (array form — the documented Prisma RLS pattern). The interactive form does
+          // not route `query` to the tx connection under the query-compiler client, so app.org_id
+          // stayed unset and RLS silently hid every row (findUniqueOrThrow threw, lists came back empty).
+          const [, result] = await base.$transaction([
+            base.$executeRaw`SELECT set_config('app.org_id', ${organizationId}, true)`,
+            query(args) as any,
+          ]);
+          return result;
         },
       },
     },

@@ -10,7 +10,11 @@ RUN pnpm install --frozen-lockfile
 # Prisma client + Pothos datamodel (no DB connection needed at build time).
 RUN DATABASE_URL_ADMIN="postgresql://build:build@localhost:5432/build" PRISMA_ENGINES_CHECKSUM_IGNORE_MISSING=1 pnpm db:generate
 # Web production build (harmless for the other services; keeps one image for all).
-RUN pnpm --filter @relay/web build
+# Next.js bakes rewrite destinations (/api/* → the API) into the build, so API_URL must be present
+# during `next build`. Railway supplies declared ARGs from the service's variables; the default is
+# this deployment's API service URL so the correct target is baked even if the build arg is absent.
+ARG API_URL=https://api-production-a2b4.up.railway.app
+RUN API_URL="${API_URL}" pnpm --filter @relay/web build
 
 ENV NODE_ENV=production
 # $APP selects the service (api|worker|web|startpage|mcp); $PRELAUNCH runs first (api → DB release).
