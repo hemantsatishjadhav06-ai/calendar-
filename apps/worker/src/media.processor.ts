@@ -18,12 +18,50 @@ export function mediaWorker() {
     if (job.name === 'process') return processAsset(job.data.assetId);
     if (job.name === 'import') return importAsset(job.data.assetId, job.data.url, job.data.filename);
     if (job.name === 'render') return renderRendition(job.data.assetId, job.data.renditionKey);
+    if (job.name === 'transform') return transformAsset(job.data);
     return 'unknown';
   }, { connection, concurrency: Number(process.env.MEDIA_CONCURRENCY ?? 4), lockDuration: 30 * 60_000 });
 }
 
 async function getBytes(key: string) { const o = await s3.send(new GetObjectCommand({ Bucket: env.S3_BUCKET, Key: key })); return Buffer.from(await (o.Body as any).transformToByteArray()); }
 async function put(key: string, body: Buffer, mime: string) { await s3.send(new PutObjectCommand({ Bucket: env.S3_BUCKET, Key: key, Body: body, ContentType: mime, CacheControl: 'public, max-age=31536000, immutable' })); }
+
+/**
+ * Apply a user crop/rotate from the image editor into a NEW asset (the original is never touched),
+ * then run the normal processing pipeline on it. rotate is 0/90/180/270; aspect is "w:h" for a
+ * centred cover-crop (or null to keep the frame). Both are optional.
+ */
+async function transformAsset({ assetId, sourceKey, rotate, aspect }: { assetId: string; sourceKey: string; rotate?: number; aspect?: string | null }) {
+  const asset = await prismaAdmin.asset.findUniqueOrThrow({ where: { id: assetId } });
+  try {
+    const src = await getBytes(sourceKey);
+    const deg = [0, 90, 180, 270].includes(Number(rotate)) ? Number(rotate) : 0;
+    let rotated = await sharp(src, { failOn: 'none' }).rotate(deg).toBuffer();
+    if (aspect) {
+      const [aw, ah] = String(aspect).split(':').map(Number);
+      if (aw > 0 && ah > 0) {
+        const m = await sharp(rotated).metadata();
+        const w = m.width ?? 0, h = m.height ?? 0;
+        if (w && h) {
+          const want = aw / ah;
+          let cw = w, ch = h;
+          if (w / h > want) cw = Math.round(h * want); else ch = Math.round(w / want);
+          const left = Math.max(0, Math.floor((w - cw) / 2)), top = Math.max(0, Math.floor((h - ch) / 2));
+          rotated = await sharp(rotated).extract({ left, top, width: Math.min(cw, w - left), height: Math.min(ch, h - top) }).toBuffer();
+        }
+      }
+    }
+    const out = await sharp(rotated).withMetadata({ exif: {} }).jpeg({ quality: 92, mozjpeg: true }).toBuffer();
+    await put(asset.originalKey, out, 'image/jpeg');
+    await prismaAdmin.asset.update({ where: { id: assetId }, data: { mime: 'image/jpeg', bytes: out.length } });
+    return processAsset(assetId);
+  } catch (e: any) {
+    log.error({ assetId, err: e.message }, 'media transform failed');
+    await prismaAdmin.asset.update({ where: { id: assetId }, data: { status: 'failed' } }).catch(() => undefined);
+    await emit(asset.organizationId, { type: 'asset.failed', assetId, error: 'transform failed' });
+    return 'failed';
+  }
+}
 
 /** Probe, strip EXIF (privacy), make thumb/preview renditions, mark ready. Network renditions are rendered lazily. */
 export async function processAsset(assetId: string) {

@@ -5,7 +5,7 @@ import { SortableContext, useSortable, horizontalListSortingStrategy, arrayMove 
 import { CSS } from '@dnd-kit/utilities';
 import { Plus } from 'lucide-react';
 import type { MediaItem } from './store';
-import { uploadFile, importUrl } from './upload';
+import { uploadFile, importUrl, transformImage } from './upload';
 import { toast } from '@/components/ui/toast';
 import { Modal } from '@/components/ui/primitives';
 import { streamAssist, rest } from '@/lib/api';
@@ -69,7 +69,14 @@ function Thumb({ m, onEdit, onRemove }: { m: MediaItem; onEdit: () => void; onRe
 
 function AltTextModal({ item, altMax, showCover, showUserTags, onClose, onSave }: { item: MediaItem; altMax: number; showCover?: boolean; showUserTags?: boolean; onClose: () => void; onSave: (p: Partial<MediaItem>) => void }) {
   const [alt, setAlt] = useState(item.altText ?? ''); const [cover, setCover] = useState(item.cover?.offsetMs ?? 1000); const [tags, setTags] = useState<string>((item.userTags ?? []).map((t: any) => t.username).join(', ')); const [gen, setGen] = useState(false);
+  const [editing, setEditing] = useState(false);
   const generate = async () => { setGen(true); let out = ''; try { await streamAssist({ action: 'alt_text', input: '', imageUrl: item.previewUrl }, d => { out += d; setAlt(out); }); } catch (e: any) { toast(e.message, { tone: 'danger' }); } finally { setGen(false); } };
+  const applyEdit = async (ops: { rotate?: number; aspect?: string | null }) => {
+    if (!item.assetId || item.assetId.startsWith('tmp-')) return;
+    setEditing(true);
+    try { const next = await transformImage(item.assetId, ops); toast('Image updated', { tone: 'success' }); onSave({ ...next, altText: alt || next.altText }); }
+    catch (e: any) { toast(e.message, { tone: 'danger' }); } finally { setEditing(false); }
+  };
   return (
     <Modal open onOpenChange={o => !o && onClose()} title="Media details" size="sm" footer={<><span style={{ flex: 1 }} /><button className="btn secondary" onClick={onClose}>Cancel</button><button className="btn primary" onClick={() => onSave({ altText: alt, cover: showCover && item.kind === 'video' ? { offsetMs: cover } : item.cover, userTags: showUserTags ? tags.split(',').map(s => s.trim().replace(/^@/, '')).filter(Boolean).map(username => ({ username, x: 0.5, y: 0.5 })) : item.userTags })}>Save</button></>}>
       <div className="stack">
@@ -79,6 +86,18 @@ function AltTextModal({ item, altMax, showCover, showUserTags, onClose, onSave }
         )}
         {showCover && item.kind === 'video' && <div className="field"><label htmlFor="cover">Cover frame (seconds)</label><input id="cover" type="range" min={0} max={Math.max(1, Math.floor((item.durationMs ?? 60000) / 1000))} step={0.5} value={cover / 1000} onChange={e => setCover(Number(e.target.value) * 1000)} /><span className="hint">{(cover / 1000).toFixed(1)}s — used as the thumbnail on Instagram, TikTok, Pinterest and YouTube.</span></div>}
         {showUserTags && item.kind === 'image' && <div className="field"><label htmlFor="tags">Tag people (Instagram usernames)</label><input id="tags" className="input" value={tags} onChange={e => setTags(e.target.value)} placeholder="@friend, @brand" /></div>}
+        {item.kind === 'image' && !item.assetId?.startsWith('tmp-') && (
+          <div className="field">
+            <span style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Crop &amp; rotate {editing && <span className="subtle">· applying…</span>}</span>
+            <div className="row" style={{ gap: 6, flexWrap: 'wrap' }}>
+              <button className="btn secondary sm" disabled={editing} onClick={() => applyEdit({ rotate: 270 })} title="Rotate left">↺ Left</button>
+              <button className="btn secondary sm" disabled={editing} onClick={() => applyEdit({ rotate: 90 })} title="Rotate right">↻ Right</button>
+              <span style={{ width: 1, alignSelf: 'stretch', background: 'var(--border)' }} />
+              {[['1:1', 'Square'], ['4:5', 'Portrait'], ['1.91:1', 'Landscape'], ['9:16', 'Story']].map(([a, label]) => <button key={a} className="btn secondary sm" disabled={editing} onClick={() => applyEdit({ aspect: a })} title={`Crop to ${a}`}>{label}</button>)}
+            </div>
+            <span className="hint">Edits create a new copy — your original stays untouched.</span>
+          </div>
+        )}
       </div>
     </Modal>
   );

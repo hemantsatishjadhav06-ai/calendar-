@@ -72,6 +72,20 @@ export class UploadsController {
     return { asset };
   }
 
+  /** Crop/rotate an image into a NEW asset (original preserved). rotate ∈ {0,90,180,270}; aspect "w:h" or null. */
+  @Post(':id/transform')
+  async transform(@Param('id') id: string, @Body() body: { rotate?: number; aspect?: string | null }) {
+    const { tenant, account } = requireTenant();
+    const src = await prismaAdmin.asset.findFirstOrThrow({ where: { id, organizationId: tenant.organizationId } });
+    if (src.kind !== 'image') throw new DomainError('VALIDATION', 'Only images can be edited');
+    const sourceKey = (src.renditions as any)?.clean?.key ?? src.originalKey;
+    const asset = await prismaAdmin.asset.create({ data: { organizationId: tenant.organizationId, uploadedByAccountId: account.id, kind: 'image', originalKey: '', mime: 'image/jpeg', bytes: 0, sha256: '', source: 'transform', sourceMeta: { from: id, rotate: body.rotate ?? 0, aspect: body.aspect ?? null }, status: 'processing' } });
+    const key = `orgs/${tenant.organizationId}/assets/${asset.id}/original.jpg`;
+    await prismaAdmin.asset.update({ where: { id: asset.id }, data: { originalKey: key } });
+    await this.queues.get('media').add('transform', { assetId: asset.id, organizationId: tenant.organizationId, sourceKey, rotate: body.rotate ?? 0, aspect: body.aspect ?? null }, { jobId: `transform-${asset.id}` });
+    return { asset };
+  }
+
   @Get()
   async list(@Query('kind') kind?: string, @Query('cursor') cursor?: string) {
     const { tenant } = requireTenant();
