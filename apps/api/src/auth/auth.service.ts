@@ -23,6 +23,25 @@ export class AuthService {
     return account;
   }
 
+  /** Social login: link an OAuth identity to an existing account (by identity or email) or create a new one. */
+  async findOrCreateFromOAuth(provider: string, providerId: string, email: string, name?: string, avatarUrl?: string): Promise<Account> {
+    const linked = await prismaAdmin.oAuthIdentity.findUnique({ where: { provider_providerId: { provider, providerId } }, include: { account: true } });
+    if (linked) return linked.account;
+    const norm = email.trim().toLowerCase();
+    const byEmail = await prismaAdmin.account.findUnique({ where: { email: norm } });
+    if (byEmail) {
+      await prismaAdmin.oAuthIdentity.create({ data: { accountId: byEmail.id, provider, providerId } });
+      if (avatarUrl && !byEmail.avatarUrl) await prismaAdmin.account.update({ where: { id: byEmail.id }, data: { avatarUrl } });
+      return byEmail;
+    }
+    const account = await prismaAdmin.account.create({ data: { email: norm, name: name ?? null, avatarUrl: avatarUrl ?? null, timezone: 'UTC' } });
+    await prismaAdmin.oAuthIdentity.create({ data: { accountId: account.id, provider, providerId } });
+    const slug = await uniqueSlug((name ?? norm.split('@')[0]).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'workspace');
+    const org = await prismaAdmin.organization.create({ data: { name: name ? `${name}'s workspace` : 'My workspace', slug, ownerAccountId: account.id, memberships: { create: { accountId: account.id, role: 'OWNER' } }, subscription: { create: {} } } });
+    await prismaAdmin.account.update({ where: { id: account.id }, data: { lastOrganizationId: org.id } });
+    return account;
+  }
+
   async verifyPassword(email: string, password: string): Promise<Account | null> {
     const account = await prismaAdmin.account.findUnique({ where: { email: email.trim().toLowerCase() } });
     if (!account?.passwordHash) return null;
