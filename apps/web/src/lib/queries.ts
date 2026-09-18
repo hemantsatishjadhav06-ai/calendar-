@@ -1,7 +1,7 @@
 import { gql } from 'graphql-request';
 
 export const CHANNEL_FIELDS = gql`fragment ChannelFields on Channel { id network subtype externalId displayName handle avatarUrl timezone status statusReason isPaused notifyByDefault postingGoalPerWeek sortOrder meta queueCount publishedThisWeek myAccess lastHealthCheckAt groupIds }`;
-export const TARGET_FIELDS = gql`fragment TargetFields on PostTarget { id postId channelId status schedulingType isCustomTime customized dueAt queuePosition text media thread firstComment metadata shortLinks externalUrl publishedAt attemptCount failureCode failureMessage metrics channel { id network displayName handle avatarUrl timezone } post { id status scheduleMode baseText baseMedia linkPreview aiAssisted autoRepost notesCount createdBy { id name email avatarUrl } tags { id name color } approval { requestedByAccountId requestedAt decision reason } targets { id channelId } } }`;
+export const TARGET_FIELDS = gql`fragment TargetFields on PostTarget { id postId channelId status schedulingType isCustomTime customized dueAt queuePosition text media thread firstComment metadata shortLinks externalUrl publishedAt attemptCount failureCode failureMessage metrics channel { id network displayName handle avatarUrl timezone } post { id status scheduleMode baseText baseMedia linkPreview aiAssisted autoRepost notesCount createdBy { id name email avatarUrl } tags { id name color } approval { requestedByAccountId requestedAt decision reason clientDecision clientDecidedAt clientReviewerName clientComment } targets { id channelId } } }`;
 
 export const Q = {
   me: gql`query Me { me { id email name avatarUrl } organization { id name slug plan entitlements settings require2fa } }`,
@@ -46,6 +46,7 @@ export const M = {
   rejectPost: gql`mutation Reject($id: ID!, $reason: String) { rejectPost(id: $id, reason: $reason) }`,
   requestApproval: gql`mutation ReqApproval($id: ID!) { requestApproval(id: $id) }`,
   createShareLink: gql`mutation ShareLink($postId: ID!) { createShareLink(postId: $postId) }`,
+  createReviewLink: gql`mutation ReviewLink($postId: ID!) { createReviewLink(postId: $postId) }`,
   markNotificationRead: gql`mutation MarkNoti($id: ID!) { markNotificationRead(id: $id) }`,
   markAllNotificationsRead: gql`mutation MarkAllNoti { markAllNotificationsRead }`,
   createCalendarEvent: gql`mutation CreateCalEvent($title: String!, $startDate: DateTime!, $endDate: DateTime, $color: String, $note: String) { createCalendarEvent(title: $title, startDate: $startDate, endDate: $endDate, color: $color, note: $note) { id } }`,

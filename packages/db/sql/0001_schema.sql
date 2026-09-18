@@ -218,6 +218,10 @@ CREATE TABLE IF NOT EXISTS "Approval" (
   "decidedAt" timestamp(3),
   "decision" text,
   "reason" text,
+  "clientDecision" text,
+  "clientDecidedAt" timestamp(3),
+  "clientReviewerName" text,
+  "clientComment" text,
   PRIMARY KEY ("postId")
 );
 CREATE TABLE IF NOT EXISTS "Note" (

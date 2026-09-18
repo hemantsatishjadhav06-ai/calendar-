@@ -4,7 +4,7 @@ import { PostsService } from '../../posts/posts.service.js';
 import { prismaAdmin } from '@cadence/db';
 import { env } from '@cadence/config';
 import { fetchPreview } from '../../links/preview.service.js';
-import { makeShareToken } from '../../share/share.token.js';
+import { makeShareToken, makeReviewToken } from '../../share/share.token.js';
 import { TagType } from './tags.js';
 
 builder.prismaObject('Post', {
@@ -58,7 +58,7 @@ builder.prismaObject('PostTarget', {
     metrics: t.field({ type: 'JSON', resolve: async (pt, _a, ctx) => { const rows = await ctx.db!.$queryRaw<{ metric: string; value: number }[]>`SELECT metric, value FROM post_metric_current WHERE "postTargetId" = ${pt.id}::uuid`; return Object.fromEntries(rows.map(r => [r.metric, Number(r.value)])); } }),
   }),
 });
-builder.prismaObject('Approval', { fields: t => ({ requestedByAccountId: t.exposeID('requestedByAccountId'), requestedAt: t.expose('requestedAt', { type: 'DateTime' }), decidedByAccountId: t.exposeID('decidedByAccountId', { nullable: true }), decidedAt: t.expose('decidedAt', { type: 'DateTime', nullable: true }), decision: t.exposeString('decision', { nullable: true }), reason: t.exposeString('reason', { nullable: true }) }) });
+builder.prismaObject('Approval', { fields: t => ({ requestedByAccountId: t.exposeID('requestedByAccountId'), requestedAt: t.expose('requestedAt', { type: 'DateTime' }), decidedByAccountId: t.exposeID('decidedByAccountId', { nullable: true }), decidedAt: t.expose('decidedAt', { type: 'DateTime', nullable: true }), decision: t.exposeString('decision', { nullable: true }), reason: t.exposeString('reason', { nullable: true }), clientDecision: t.exposeString('clientDecision', { nullable: true }), clientDecidedAt: t.expose('clientDecidedAt', { type: 'DateTime', nullable: true }), clientReviewerName: t.exposeString('clientReviewerName', { nullable: true }), clientComment: t.exposeString('clientComment', { nullable: true }) }) });
 builder.prismaObject('Note', { fields: t => ({ id: t.exposeID('id'), body: t.exposeString('body'), author: t.field({ type: AccountSummary, nullable: true, resolve: n => prismaAdmin.account.findUnique({ where: { id: n.authorAccountId }, select: { id: true, email: true, name: true, avatarUrl: true } }) }), createdAt: t.expose('createdAt', { type: 'DateTime' }), editedAt: t.expose('editedAt', { type: 'DateTime', nullable: true }) }) });
 
 const MediaInput = builder.inputType('MediaInput', { fields: t => ({ assetId: t.id({ required: true }), kind: t.string({ required: true }), altText: t.string(), userTags: t.field({ type: 'JSON' }), cover: t.field({ type: 'JSON' }), order: t.int() }) });
@@ -114,6 +114,7 @@ builder.mutationFields(t => ({
   rejectPost: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }), reason: t.arg.string() }, resolve: async (_r, args, ctx) => { await svc(ctx).reject(String(args.id), args.reason ?? undefined); return true; } }),
   requestApproval: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }) }, resolve: async (_r, args, ctx) => { await svc(ctx).requestApproval(String(args.id)); return true; } }),
   createShareLink: t.string({ authScopes: { user: true }, args: { postId: t.arg.id({ required: true }) }, resolve: async (_r, args, ctx) => { const post = await ctx.db!.post.findFirstOrThrow({ where: { id: String(args.postId), organizationId: ctx.tenant!.organizationId }, select: { id: true } }); return `${env.APP_URL}/share/${makeShareToken(post.id)}`; } }),
+  createReviewLink: t.string({ authScopes: { user: true }, args: { postId: t.arg.id({ required: true }) }, resolve: async (_r, args, ctx) => { const post = await ctx.db!.post.findFirstOrThrow({ where: { id: String(args.postId), organizationId: ctx.tenant!.organizationId }, select: { id: true } }); return `${env.APP_URL}/review/${makeReviewToken(post.id)}`; } }),
   revertApproval: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }) }, resolve: async (_r, args, ctx) => { await svc(ctx).revertApproval(String(args.id)); return true; } }),
   addNote: t.prismaField({ type: 'Note', authScopes: { user: true }, args: { postId: t.arg.id({ required: true }), body: t.arg.string({ required: true }) }, resolve: (q, _r, args, ctx) => ctx.db!.note.create({ ...q, data: { organizationId: ctx.tenant!.organizationId, postId: String(args.postId), authorAccountId: ctx.account!.id, body: args.body.slice(0, 5000) } }) }),
   editNote: t.prismaField({ type: 'Note', authScopes: { user: true }, args: { id: t.arg.id({ required: true }), body: t.arg.string({ required: true }) }, resolve: async (q, _r, args, ctx) => { const n = await ctx.db!.note.findUniqueOrThrow({ where: { id: String(args.id) } }); if (n.authorAccountId !== ctx.account!.id) throw new Error('Not authorized'); return ctx.db!.note.update({ ...q, where: { id: n.id }, data: { body: args.body.slice(0, 5000), editedAt: new Date() } }); } }),

@@ -14,11 +14,12 @@ import { HealthController } from './health.controller.js';
 import { AiController } from './ai/ai.controller.js';
 import { NotifyController } from './notify/notify.controller.js';
 import { ShareController } from './share/share.controller.js';
+import { ReviewController } from './share/review.controller.js';
 import { RedisService } from './infra/redis.service.js';
 import { QueuesService } from './infra/queues.service.js';
 
 @Module({
-  controllers: [HealthController, AuthController, OAuthController, WebhooksController, UploadsController, EventsController, StripeController, ShortLinkController, AiController, NotifyController, ShareController],
+  controllers: [HealthController, AuthController, OAuthController, WebhooksController, UploadsController, EventsController, StripeController, ShortLinkController, AiController, NotifyController, ShareController, ReviewController],
   providers: [RedisService, QueuesService, AuthService, ChannelsService, BillingService, SessionMiddleware],
 })
 export class AppModule implements NestModule {

@@ -80,6 +80,12 @@ async function main() {
   await tryRun('Post.autoRepost', `ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "autoRepost" "AutoRepost" NOT NULL DEFAULT 'OFF'::"AutoRepost"`);
   await tryRun('Post.boostedAt', `ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "boostedAt" timestamp(3)`);
 
+  // Client review-link sign-off columns on Approval (existing DBs; fresh DBs get them from 0001).
+  await tryRun('Approval.clientDecision', `ALTER TABLE "Approval" ADD COLUMN IF NOT EXISTS "clientDecision" text`);
+  await tryRun('Approval.clientDecidedAt', `ALTER TABLE "Approval" ADD COLUMN IF NOT EXISTS "clientDecidedAt" timestamp(3)`);
+  await tryRun('Approval.clientReviewerName', `ALTER TABLE "Approval" ADD COLUMN IF NOT EXISTS "clientReviewerName" text`);
+  await tryRun('Approval.clientComment', `ALTER TABLE "Approval" ADD COLUMN IF NOT EXISTS "clientComment" text`);
+
   await run('grants', `
     GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO relay, relay_vault;
     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO relay, relay_vault;

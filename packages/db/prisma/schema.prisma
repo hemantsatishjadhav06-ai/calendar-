@@ -361,6 +361,11 @@ model Approval {
   decidedAt            DateTime?
   decision             String?
   reason               String?
+  // Client sign-off captured via an unauthenticated review link (does not change publish state).
+  clientDecision       String?
+  clientDecidedAt      DateTime?
+  clientReviewerName   String?
+  clientComment        String?
 }
 
 model Note {
