@@ -9,7 +9,7 @@ export { seal, open, keyProvider } from './crypto.js';
 export interface Creds {
   accessToken: string;
   refreshToken?: string;
-  tokenType: 'bearer' | 'dpop' | 'app_password' | 'oauth-session';
+  tokenType: 'bearer' | 'dpop' | 'app_password' | 'oauth-session' | 'apikey';
   accessExpiresAt?: Date;
   refreshExpiresAt?: Date;
   scopes?: string[];

@@ -1,6 +1,6 @@
 import { builder } from '../builder.js';
 
-export const NetworkEnum = builder.enumType('Network', { values: ['FACEBOOK', 'INSTAGRAM', 'THREADS', 'X', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'PINTEREST', 'GOOGLE_BUSINESS', 'BLUESKY', 'MASTODON', 'START_PAGE'] as const });
+export const NetworkEnum = builder.enumType('Network', { values: ['FACEBOOK', 'INSTAGRAM', 'THREADS', 'X', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'PINTEREST', 'GOOGLE_BUSINESS', 'BLUESKY', 'MASTODON', 'DEVTO', 'START_PAGE'] as const });
 export const ChannelStatusEnum = builder.enumType('ChannelStatus', { values: ['ACTIVE', 'RECONNECT_REQUIRED', 'LOCKED', 'DISCONNECTED'] as const });
 export const PostStatusEnum = builder.enumType('PostStatus', { values: ['DRAFT', 'PENDING_APPROVAL', 'QUEUED', 'SCHEDULED', 'PUBLISHING', 'PUBLISHED', 'PARTIALLY_PUBLISHED', 'FAILED', 'NOTIFIED', 'CANCELLED'] as const });
 export const ScheduleModeEnum = builder.enumType('ScheduleMode', { values: ['QUEUE', 'SHARE_NEXT', 'CUSTOM', 'NOW', 'DRAFT'] as const });

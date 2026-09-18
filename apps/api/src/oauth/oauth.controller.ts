@@ -9,7 +9,7 @@ import { requireTenant } from '../auth/session.middleware.js';
 import { RedisService } from '../infra/redis.service.js';
 import { ChannelsService } from '../channels/channels.service.js';
 
-const NETWORKS = new Set<string>(['FACEBOOK', 'INSTAGRAM', 'THREADS', 'X', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'PINTEREST', 'GOOGLE_BUSINESS', 'BLUESKY', 'MASTODON']);
+const NETWORKS = new Set<string>(['FACEBOOK', 'INSTAGRAM', 'THREADS', 'X', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'PINTEREST', 'GOOGLE_BUSINESS', 'BLUESKY', 'MASTODON', 'DEVTO']);
 
 @Controller('oauth')
 export class OAuthController {

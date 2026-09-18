@@ -68,6 +68,11 @@ async function main() {
 
   await run('schema (0001)', readSql('0001_schema.sql'));
 
+  // Enum values added after the initial release need ALTER TYPE on existing databases (fresh DBs
+  // already have them from 0001's CREATE TYPE). Runs as its own autocommit statement — ADD VALUE
+  // cannot run inside a transaction block on older Postgres. IF NOT EXISTS makes it idempotent.
+  await tryRun('Network enum: DEVTO', `ALTER TYPE "Network" ADD VALUE IF NOT EXISTS 'DEVTO'`);
+
   await run('grants', `
     GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO relay, relay_vault;
     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO relay, relay_vault;

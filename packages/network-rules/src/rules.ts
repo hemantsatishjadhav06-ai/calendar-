@@ -128,8 +128,20 @@ export const startPageRules: NetworkRules = {
   metadataSchema: z.object({ link: z.string().url().optional() }).passthrough(),
 };
 
+// DEV.to (Forem) — long-form Markdown articles rather than short social posts. The post text is the
+// article body_markdown; a title is required and lives in metadata, plus up to 4 tags, an optional
+// series and a canonical URL. One optional cover image (main_image). No native comments/polls API here.
+export const devtoRules: NetworkRules = {
+  network: 'DEVTO', label: 'DEV.to',
+  text: { max: 250000, counter: codepoints },
+  media: { maxImages: 1, maxVideos: 0, mixImagesVideo: false, gif: false, image: { formats: ['jpeg', 'png', 'webp', 'gif'], maxBytes: 25e6 } },
+  features: { firstComment: false, location: false, userTags: false, linkPreviewEditable: 'none', polls: false, scheduleNative: false, notifyMe: false, title: { max: 250, required: true }, like: false, hide: false, deleteComment: false, reply: false },
+  quota: { note: 'Article publishing via the Forem API key' },
+  metadataSchema: z.object({ title: z.string().min(1).max(250), tags: z.array(z.string().regex(/^[a-z0-9]+$/i)).max(4).optional(), series: z.string().max(150).optional(), canonicalUrl: z.string().url().optional(), published: z.boolean().optional() }).passthrough(),
+};
+
 export const RULES: Record<string, NetworkRules> = {
   FACEBOOK: facebookRules, INSTAGRAM: instagramRules, THREADS: threadsRules, X: xRules, LINKEDIN: linkedinRules, TIKTOK: tiktokRules,
-  YOUTUBE: youtubeRules, PINTEREST: pinterestRules, GOOGLE_BUSINESS: gbpRules, BLUESKY: blueskyRules, MASTODON: mastodonRules, START_PAGE: startPageRules,
+  YOUTUBE: youtubeRules, PINTEREST: pinterestRules, GOOGLE_BUSINESS: gbpRules, BLUESKY: blueskyRules, MASTODON: mastodonRules, DEVTO: devtoRules, START_PAGE: startPageRules,
 };
 export const rulesFor = (network: string): NetworkRules => { const r = RULES[network]; if (!r) throw new Error(`No rules for ${network}`); return r; };

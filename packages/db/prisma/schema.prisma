@@ -162,6 +162,7 @@ enum Network {
   GOOGLE_BUSINESS
   BLUESKY
   MASTODON
+  DEVTO
   START_PAGE
 }
 enum ChannelStatus {

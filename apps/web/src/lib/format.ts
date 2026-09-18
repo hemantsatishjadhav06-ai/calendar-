@@ -1,7 +1,7 @@
 import { DateTime } from 'luxon';
 
-export const NETWORK_LABEL: Record<string, string> = { FACEBOOK: 'Facebook', INSTAGRAM: 'Instagram', THREADS: 'Threads', X: 'X', LINKEDIN: 'LinkedIn', TIKTOK: 'TikTok', YOUTUBE: 'YouTube', PINTEREST: 'Pinterest', GOOGLE_BUSINESS: 'Google Business', BLUESKY: 'Bluesky', MASTODON: 'Mastodon', START_PAGE: 'Start Page' };
-export const NETWORK_SHORT: Record<string, string> = { FACEBOOK: 'f', INSTAGRAM: 'ig', THREADS: '@', X: 'X', LINKEDIN: 'in', TIKTOK: 'tt', YOUTUBE: '▶', PINTEREST: 'P', GOOGLE_BUSINESS: 'G', BLUESKY: 'bs', MASTODON: 'm', START_PAGE: 'S' };
+export const NETWORK_LABEL: Record<string, string> = { FACEBOOK: 'Facebook', INSTAGRAM: 'Instagram', THREADS: 'Threads', X: 'X', LINKEDIN: 'LinkedIn', TIKTOK: 'TikTok', YOUTUBE: 'YouTube', PINTEREST: 'Pinterest', GOOGLE_BUSINESS: 'Google Business', BLUESKY: 'Bluesky', MASTODON: 'Mastodon', DEVTO: 'DEV.to', START_PAGE: 'Start Page' };
+export const NETWORK_SHORT: Record<string, string> = { FACEBOOK: 'f', INSTAGRAM: 'ig', THREADS: '@', X: 'X', LINKEDIN: 'in', TIKTOK: 'tt', YOUTUBE: '▶', PINTEREST: 'P', GOOGLE_BUSINESS: 'G', BLUESKY: 'bs', MASTODON: 'm', DEVTO: 'DEV', START_PAGE: 'S' };
 export const STATUS_LABEL: Record<string, string> = { DRAFT: 'Draft', PENDING_APPROVAL: 'Awaiting approval', QUEUED: 'Queued', SCHEDULED: 'Scheduled', PUBLISHING: 'Publishing…', PUBLISHED: 'Published', PARTIALLY_PUBLISHED: 'Partially published', FAILED: 'Failed', NOTIFIED: 'Reminder sent', CANCELLED: 'Cancelled' };
 
 export const fmtTime = (iso: string | Date | null | undefined, zone?: string, fmt = 'HH:mm') => (iso ? DateTime.fromJSDate(new Date(iso)).setZone(zone ?? 'local').toFormat(fmt) : '—');
