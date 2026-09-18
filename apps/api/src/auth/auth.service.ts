@@ -2,10 +2,14 @@ import { Injectable } from '@nestjs/common';
 import argon2 from 'argon2';
 import { authenticator } from 'otplib';
 import { createHash, randomBytes } from 'node:crypto';
+import { generateRegistrationOptions, verifyRegistrationResponse, generateAuthenticationOptions, verifyAuthenticationResponse } from '@simplewebauthn/server';
 import { prismaAdmin, type Account } from '@cadence/db';
 import { env } from '@cadence/config';
 import { DomainError } from '@cadence/domain';
 import { keyProvider, seal, open } from '@cadence/token-vault';
+
+const rpID = (() => { try { return new URL(env.APP_URL).hostname; } catch { return 'localhost'; } })();
+const rpOrigin = env.APP_URL;
 
 const SESSION_TTL_MS = 30 * 864e5;
 
@@ -99,6 +103,40 @@ export class AuthService {
     return !!secret && authenticator.check(code, secret);
   }
   async disableTotp(accountId: string) { await prismaAdmin.account.update({ where: { id: accountId }, data: { totpSecretEnc: null, totpEnabledAt: null, recoveryCodesEnc: null } }); }
+
+  // ---- Passkeys (WebAuthn). Challenges are held in Redis by the controller (stateless here).
+  async passkeyRegistrationOptions(account: Account): Promise<any> {
+    const existing = await prismaAdmin.passkey.findMany({ where: { accountId: account.id } });
+    return generateRegistrationOptions({
+      rpName: 'Cadence', rpID, userName: account.email, userDisplayName: account.name ?? account.email,
+      userID: new TextEncoder().encode(account.id),
+      attestationType: 'none',
+      excludeCredentials: existing.map(p => ({ id: p.credentialId, transports: p.transports as any })),
+      authenticatorSelection: { residentKey: 'preferred', userVerification: 'preferred' },
+    });
+  }
+  async verifyPasskeyRegistration(account: Account, response: any, expectedChallenge: string, name?: string) {
+    const v = await verifyRegistrationResponse({ response, expectedChallenge, expectedOrigin: rpOrigin, expectedRPID: rpID });
+    if (!v.verified || !v.registrationInfo) throw new DomainError('VALIDATION', 'Could not register that passkey');
+    const c = v.registrationInfo.credential;
+    await prismaAdmin.passkey.create({ data: { accountId: account.id, credentialId: c.id, publicKey: Buffer.from(c.publicKey), counter: BigInt(c.counter ?? 0), transports: (c.transports ?? []) as string[], name: name?.slice(0, 60) ?? 'Passkey' } });
+    return { ok: true };
+  }
+  async passkeyAuthOptions(email?: string): Promise<any> {
+    let allow: { id: string; transports?: any }[] | undefined;
+    if (email) { const acc = await prismaAdmin.account.findUnique({ where: { email: email.trim().toLowerCase() }, include: { passkeys: true } }); allow = acc?.passkeys.map(p => ({ id: p.credentialId, transports: p.transports as any })); }
+    return generateAuthenticationOptions({ rpID, userVerification: 'preferred', ...(allow?.length ? { allowCredentials: allow } : {}) });
+  }
+  async verifyPasskeyAuth(response: any, expectedChallenge: string): Promise<Account | null> {
+    const pk = await prismaAdmin.passkey.findUnique({ where: { credentialId: response.id }, include: { account: true } });
+    if (!pk) return null;
+    const v = await verifyAuthenticationResponse({ response, expectedChallenge, expectedOrigin: rpOrigin, expectedRPID: rpID, credential: { id: pk.credentialId, publicKey: new Uint8Array(pk.publicKey), counter: Number(pk.counter), transports: pk.transports as any } });
+    if (!v.verified) return null;
+    await prismaAdmin.passkey.update({ where: { id: pk.id }, data: { counter: BigInt(v.authenticationInfo.newCounter), lastUsedAt: new Date() } });
+    return pk.account;
+  }
+  async listPasskeys(accountId: string) { return prismaAdmin.passkey.findMany({ where: { accountId }, select: { id: true, name: true, createdAt: true, lastUsedAt: true }, orderBy: { createdAt: 'desc' } }); }
+  async deletePasskey(accountId: string, id: string) { await prismaAdmin.passkey.deleteMany({ where: { id, accountId } }); }
 
   // ---- API keys
   async createApiKey(accountId: string, organizationId: string, name: string, scopes: string[]) {

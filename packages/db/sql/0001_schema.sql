@@ -49,6 +49,20 @@ CREATE TABLE IF NOT EXISTS "Session" (
   "createdAt" timestamp(3) NOT NULL DEFAULT now(),
   PRIMARY KEY ("id")
 );
+CREATE TABLE IF NOT EXISTS "Passkey" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
+  "accountId" uuid NOT NULL,
+  "credentialId" text NOT NULL,
+  "publicKey" bytea NOT NULL,
+  "counter" bigint NOT NULL DEFAULT 0,
+  "transports" text[] NOT NULL DEFAULT '{}',
+  "name" text,
+  "createdAt" timestamp(3) NOT NULL DEFAULT now(),
+  "lastUsedAt" timestamp(3),
+  PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "Passkey_credentialId_key" ON "Passkey" ("credentialId");
+CREATE INDEX IF NOT EXISTS "Passkey_accountId_idx" ON "Passkey" ("accountId");
 CREATE TABLE IF NOT EXISTS "Agency" (
   "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
   "name" text NOT NULL,

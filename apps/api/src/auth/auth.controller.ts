@@ -80,6 +80,39 @@ export class AuthController {
     } catch { return fail('Google sign-in failed'); }
   }
 
+  // ── Passkeys (WebAuthn). Additive; email/password login remains available.
+  @Post('passkey/register/begin') async pkRegBegin(): Promise<any> {
+    const c = ctx(); if (!c.account) throw new UnauthorizedException();
+    const options = await this.auth.passkeyRegistrationOptions(c.account);
+    await this.redis.client.setex(`pk:reg:${c.account.id}`, 300, options.challenge);
+    return options;
+  }
+  @Post('passkey/register/finish') async pkRegFinish(@Body() body: { response: any; name?: string }) {
+    const c = ctx(); if (!c.account) throw new UnauthorizedException();
+    const challenge = await this.redis.client.get(`pk:reg:${c.account.id}`);
+    if (!challenge) throw new UnauthorizedException('Passkey registration expired, please try again');
+    await this.redis.client.del(`pk:reg:${c.account.id}`);
+    return this.auth.verifyPasskeyRegistration(c.account, body.response, challenge, body.name);
+  }
+  @Get('passkeys') async pkList() { const c = ctx(); if (!c.account) throw new UnauthorizedException(); return { passkeys: await this.auth.listPasskeys(c.account.id) }; }
+  @Post('passkey/delete') @HttpCode(204) async pkDelete(@Body() body: { id: string }) { const c = ctx(); if (!c.account) throw new UnauthorizedException(); await this.auth.deletePasskey(c.account.id, body.id); }
+
+  @Post('passkey/login/begin') async pkLoginBegin(@Body() body: { email?: string }): Promise<any> {
+    const options = await this.auth.passkeyAuthOptions(body?.email);
+    const handle = randomBytes(16).toString('hex');
+    await this.redis.client.setex(`pk:auth:${handle}`, 300, options.challenge);
+    return { handle, options };
+  }
+  @Post('passkey/login/finish') @HttpCode(200) async pkLoginFinish(@Body() body: { handle: string; response: any }, @Req() req: Request, @Res({ passthrough: true }) res: Response) {
+    const challenge = body?.handle ? await this.redis.client.get(`pk:auth:${body.handle}`) : null;
+    if (!challenge) throw new UnauthorizedException('Passkey sign-in expired, please try again');
+    await this.redis.client.del(`pk:auth:${body.handle}`);
+    const account = await this.auth.verifyPasskeyAuth(body.response, challenge);
+    if (!account) throw new UnauthorizedException('Passkey not recognised');
+    await this.issueCookie(res, account.id, req);
+    return { id: account.id, email: account.email, lastOrganizationId: account.lastOrganizationId };
+  }
+
   @Post('totp/begin') async totpBegin() { const c = ctx(); if (!c.account) throw new UnauthorizedException(); return this.auth.beginTotp(c.account.id); }
   @Post('totp/confirm') async totpConfirm(@Body() body: { code: string }) { const c = ctx(); if (!c.account) throw new UnauthorizedException(); return { recoveryCodes: await this.auth.confirmTotp(c.account.id, body.code) }; }
   @Post('totp/disable') @HttpCode(204) async totpDisable(@Body() body: { code: string }) { const c = ctx(); if (!c.account) throw new UnauthorizedException(); if (!(await this.auth.verifyTotp(c.account, body.code))) throw new UnauthorizedException('Invalid code'); await this.auth.disableTotp(c.account.id); }

@@ -8,7 +8,7 @@ import { rest } from '@/lib/api';
 import { Avatar, Confirm, Modal, UpgradeHint } from '@/components/ui/primitives';
 import { toast } from '@/components/ui/toast';
 import { tzList, fmtDateTime } from '@/lib/format';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 const SECTIONS = [['account', 'Account'], ['security', 'Security & 2FA'], ['preferences', 'Preferences'], ['notifications', 'Notifications'], ['organization', 'Organization'], ['team', 'Team members'], ['tags', 'Tags'], ['saved-replies', 'Saved replies'], ['integrations', 'Apps & extras'], ['api', 'API'], ['audit', 'Activity log']];
 
@@ -40,11 +40,33 @@ function Account() {
 
 function Security() {
   const a = useAccount(); const qc = useQueryClient(); const [setup, setSetup] = useState<{ secret: string; otpauth: string } | null>(null); const [code, setCode] = useState(''); const [codes, setCodes] = useState<string[] | null>(null);
-  return (<Section title="Two-factor authentication" desc="Adds a 6-digit code from an authenticator app to your sign-in.">
+  return (<><Section title="Two-factor authentication" desc="Adds a 6-digit code from an authenticator app to your sign-in.">
     {a.data?.totpEnabled ? <div className="row"><span className="tag brand">Enabled</span><button className="btn secondary sm" onClick={async () => { const c = prompt('Enter a current code to disable 2FA'); if (c) { await rest('/auth/totp/disable', { method: 'POST', json: { code: c } }); qc.invalidateQueries({ queryKey: ['account'] }); toast('2FA disabled'); } }}>Disable</button></div>
       : setup ? <div className="stack"><p>Scan this in your authenticator app, or enter the key manually: <code>{setup.secret}</code></p><img alt="QR code for authenticator app" src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(setup.otpauth)}`} width={180} height={180} /><div className="row"><input className="input" style={{ width: 160 }} inputMode="numeric" placeholder="123456" value={code} onChange={e => setCode(e.target.value)} aria-label="Code" /><button className="btn primary sm" onClick={async () => { try { const r = await rest('/auth/totp/confirm', { method: 'POST', json: { code } }); setCodes(r.recoveryCodes); setSetup(null); qc.invalidateQueries({ queryKey: ['account'] }); } catch (e: any) { toast(e.message, { tone: 'danger' }); } }}>Confirm</button></div></div>
       : <button className="btn primary sm" onClick={async () => setSetup(await rest('/auth/totp/begin', { method: 'POST' }))}>Set up 2FA</button>}
     {codes && <Modal open onOpenChange={() => setCodes(null)} title="Recovery codes" size="sm"><p>Store these somewhere safe. Each works once if you lose your authenticator.</p><pre className="ai-out">{codes.join('\n')}</pre></Modal>}
+  </Section><Passkeys /></>);
+}
+
+function Passkeys() {
+  const list = useQuery<{ passkeys: any[] }>({ queryKey: ['passkeys'], queryFn: () => rest('/auth/passkeys') }); const qc = useQueryClient(); const [busy, setBusy] = useState(false);
+  const add = async () => {
+    setBusy(true);
+    try {
+      const { startRegistration } = await import('@simplewebauthn/browser');
+      const options = await rest('/auth/passkey/register/begin', { method: 'POST' });
+      const response = await startRegistration({ optionsJSON: options });
+      await rest('/auth/passkey/register/finish', { method: 'POST', json: { response, name: `Passkey · ${new Date().toLocaleDateString()}` } });
+      qc.invalidateQueries({ queryKey: ['passkeys'] }); toast('Passkey added', { tone: 'success' });
+    } catch (e: any) { if (e?.name !== 'NotAllowedError') toast(e.message ?? 'Could not add passkey', { tone: 'danger' }); } finally { setBusy(false); }
+  };
+  const remove = async (id: string) => { await rest('/auth/passkey/delete', { method: 'POST', json: { id } }); qc.invalidateQueries({ queryKey: ['passkeys'] }); toast('Passkey removed'); };
+  return (<Section title="Passkeys" desc="Sign in with Face ID, Touch ID, Windows Hello or a security key — no password needed.">
+    <div className="stack">
+      {(list.data?.passkeys ?? []).map((p: any) => <div key={p.id} className="row" style={{ justifyContent: 'space-between', borderBottom: '1px solid var(--border)', padding: '8px 0' }}><span>🔑 {p.name}<span className="subtle" style={{ marginLeft: 8 }}>added {new Date(p.createdAt).toLocaleDateString()}{p.lastUsedAt ? ` · last used ${new Date(p.lastUsedAt).toLocaleDateString()}` : ''}</span></span><button className="btn ghost sm" onClick={() => confirm(`Remove ${p.name}?`) && remove(p.id)}>Remove</button></div>)}
+      {list.data && !list.data.passkeys.length && <p className="subtle">No passkeys yet.</p>}
+      <button className="btn primary sm" disabled={busy} onClick={add} style={{ alignSelf: 'flex-start' }}>{busy ? 'Waiting…' : 'Add a passkey'}</button>
+    </div>
   </Section>);
 }
 

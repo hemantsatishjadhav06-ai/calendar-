@@ -33,6 +33,17 @@ function LoginInner() {
         <div className="field"><label htmlFor="password">Password</label><input id="password" className="input" type="password" autoComplete="current-password" required value={password} onChange={e => setPassword(e.target.value)} /></div>
         {needsTotp && <div className="field"><label htmlFor="totp">Authentication code</label><input id="totp" className="input" inputMode="numeric" autoComplete="one-time-code" ref={totpRef} value={totp} onChange={e => setTotp(e.target.value)} /><span className="hint">From your authenticator app, or a recovery code.</span></div>}
         <button className="btn primary" style={{ width: '100%', justifyContent: 'center' }} disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+        <button type="button" className="btn secondary" style={{ width: '100%', justifyContent: 'center', marginTop: 8 }} disabled={busy} onClick={async () => {
+          setBusy(true); setError(null);
+          try {
+            const { startAuthentication } = await import('@simplewebauthn/browser');
+            const { handle, options } = await rest('/auth/passkey/login/begin', { method: 'POST', json: { email: email || undefined } });
+            const response = await startAuthentication({ optionsJSON: options });
+            const r = await rest('/auth/passkey/login/finish', { method: 'POST', json: { handle, response } });
+            if (r.lastOrganizationId) setCurrentOrgId(r.lastOrganizationId);
+            router.replace(params.get('next') ?? '/home');
+          } catch (err: any) { if (err?.name !== 'NotAllowedError') setError(err.message ?? 'Passkey sign-in failed'); } finally { setBusy(false); }
+        }}>🔑 Sign in with a passkey</button>
         <p className="subtle" style={{ textAlign: 'center', marginTop: 16 }}>New here? <Link href="/signup">Create an account</Link></p>
       </form>
     </main>
