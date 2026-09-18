@@ -2,7 +2,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useInfiniteQuery } from '@tanstack/react-query';
-import { RefreshCw, Check, EyeOff, Trash2, Heart, Sparkles, MessageSquareText } from 'lucide-react';
+import { RefreshCw, Check, EyeOff, Trash2, Heart, Sparkles, MessageSquareText, UserPlus, SmilePlus, Clock } from 'lucide-react';
 import { TopBar } from '@/components/shell/TopBar';
 import { gqlRequest, rest } from '@/lib/api';
 import { Q, M } from '@/lib/queries';
@@ -17,8 +17,9 @@ export default function CommunityPage() { return <Suspense fallback={null}><Comm
 function CommunityInner() {
   const params = useSearchParams(); const tab = params.get('tab') === 'mentions' ? 'mentions' : 'comments';
   const channels = useChannels(); const me = useMe(); const ent = me.data?.organization?.entitlements ?? {};
-  const [view, setView] = useState<View>('post'); const [sort, setSort] = useState('unanswered'); const [chan, setChan] = useState<string[]>([]); const [showResolved, setShowResolved] = useState(false); const [selectedPost, setSelectedPost] = useState<{ channelId: string; externalPostId: string } | null>(null); const [focus, setFocus] = useState<string | null>(params.get('comment'));
-  const filter = useMemo(() => ({ channelIds: chan.length ? chan : undefined, includeResolved: showResolved, kinds: tab === 'mentions' ? ['MENTION'] : ['COMMENT', 'REPLY', 'REVIEW', 'DM'], ...(view === 'post' && selectedPost ? { postExternalId: selectedPost.externalPostId, channelIds: [selectedPost.channelId] } : {}) }), [chan, showResolved, tab, view, selectedPost]);
+  const [view, setView] = useState<View>('post'); const [sort, setSort] = useState('unanswered'); const [chan, setChan] = useState<string[]>([]); const [showResolved, setShowResolved] = useState(false); const [assignFilter, setAssignFilter] = useState<'all' | 'mine' | 'unassigned'>('all'); const [selectedPost, setSelectedPost] = useState<{ channelId: string; externalPostId: string } | null>(null); const [focus, setFocus] = useState<string | null>(params.get('comment'));
+  const members = useGql<any>(['members'], Q.members); const meId = me.data?.me?.id; const slaMinutes = Number((me.data?.organization?.settings as any)?.slaMinutes ?? 240);
+  const filter = useMemo(() => ({ channelIds: chan.length ? chan : undefined, includeResolved: showResolved, kinds: tab === 'mentions' ? ['MENTION'] : ['COMMENT', 'REPLY', 'REVIEW', 'DM'], ...(assignFilter === 'mine' && meId ? { assignedToAccountId: meId } : {}), ...(assignFilter === 'unassigned' ? { unassignedOnly: true } : {}), ...(view === 'post' && selectedPost ? { postExternalId: selectedPost.externalPostId, channelIds: [selectedPost.channelId] } : {}) }), [chan, showResolved, tab, view, selectedPost, assignFilter, meId]);
   const q = useInfiniteQuery({ queryKey: ['comments', filter, sort], queryFn: ({ pageParam }) => gqlRequest(Q.comments, { filter, sort, first: 50, after: pageParam }), initialPageParam: undefined as string | undefined, getNextPageParam: (l: any) => (l.comments.pageInfo.hasNextPage ? l.comments.pageInfo.endCursor : undefined), refetchInterval: 60_000 });
   const groups = useGql<any>(['comments', 'groups', chan, showResolved, tab], Q.commentGroups, { filter: { channelIds: chan.length ? chan : undefined, includeResolved: showResolved, kinds: tab === 'mentions' ? ['MENTION'] : undefined } }, { enabled: view === 'post' });
   const items: any[] = (q.data?.pages ?? []).flatMap((p: any) => p.comments.edges.map((e: any) => e.node));
@@ -40,6 +41,7 @@ function CommunityInner() {
           <Menu trigger={<button className="btn secondary sm">Channels {chan.length ? `(${chan.length})` : ''} ▾</button>}><MenuItem onSelect={() => setChan([])}>All channels</MenuItem>{(channels.data?.channels ?? []).map((c: any) => <MenuItem key={c.id} onSelect={() => setChan(s => (s.includes(c.id) ? s.filter(x => x !== c.id) : [...s, c.id]))}>{chan.includes(c.id) ? '✓ ' : ''}{c.displayName}</MenuItem>)}</Menu>
           <div className="tabs" role="radiogroup" aria-label="View">{(['post', 'list', 'grid'] as View[]).map(v => <button key={v} role="radio" aria-checked={view === v} className="tab" style={{ border: 0, cursor: 'pointer', background: view === v ? 'var(--bg-inset)' : 'none' }} onClick={() => { setView(v); setSelectedPost(null); }}>{{ post: 'By post', list: 'List', grid: 'Grid' }[v]}</button>)}</div>
           <select className="select" style={{ width: 'auto', padding: '5px 10px' }} value={sort} onChange={e => setSort(e.target.value)} aria-label="Sort"><option value="unanswered">Unanswered first</option><option value="newest">Newest</option><option value="oldest">Oldest</option></select>
+          <select className="select" style={{ width: 'auto', padding: '5px 10px' }} value={assignFilter} onChange={e => setAssignFilter(e.target.value as any)} aria-label="Assignment"><option value="all">Everyone</option><option value="mine">Assigned to me</option><option value="unassigned">Unassigned</option></select>
           <label className="row subtle"><input type="checkbox" checked={showResolved} onChange={e => setShowResolved(e.target.checked)} /> Show resolved</label>
           <span style={{ flex: 1 }} />
           <Menu trigger={<button className="btn secondary sm"><Check size={13} /> Bulk resolve ▾</button>}><MenuItem onSelect={() => resolve.mutate({ all: true })}>Resolve all</MenuItem><MenuItem onSelect={() => resolve.mutate({ olderThanDays: 30 })}>Resolve older than a month</MenuItem>{selectedPost && <MenuItem onSelect={() => resolve.mutate({ postExternalId: selectedPost.externalPostId, channelId: selectedPost.channelId })}>Resolve for this post</MenuItem>}</Menu>
@@ -49,7 +51,7 @@ function CommunityInner() {
           <section aria-label="Comments" className={view === 'grid' ? 'grid' : 'stack'} style={view === 'grid' ? { gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))' } : undefined}>
             {q.isLoading && [1, 2, 3].map(i => <div key={i} className="skeleton" style={{ height: 90 }} />)}
             {!q.isLoading && !items.length && <EmptyState icon={<MessageSquareText size={36} className="muted" />} title={tab === 'mentions' ? 'No mentions yet' : 'No comments to show'} body="Comments from Facebook, Instagram, Threads, X, LinkedIn, YouTube, Bluesky, Mastodon, TikTok (Business) and Google reviews appear here within minutes." />}
-            {items.map(c => <CommentCard key={c.id} c={c} focused={focus === c.id} onFocus={() => setFocus(c.id)} ent={ent} grid={view === 'grid'} />)}
+            {items.map(c => <CommentCard key={c.id} c={c} focused={focus === c.id} onFocus={() => setFocus(c.id)} ent={ent} grid={view === 'grid'} members={members.data?.organization?.members ?? []} slaMinutes={slaMinutes} />)}
             {q.hasNextPage && <button className="btn secondary" onClick={() => q.fetchNextPage()}>Load more</button>}
           </section>
           {view === 'post' && <aside className="right" aria-label="Post details">{(() => { const g = groups.data?.commentPostGroups?.find((x: any) => x.externalPostId === selectedPost?.externalPostId); const pt = g?.postTarget; return pt ? <div className="card"><div className="row" style={{ marginBottom: 8 }}><Avatar src={pt.channel.avatarUrl} name={pt.channel.displayName} network={pt.channel.network} size="sm" /><b style={{ fontSize: 13 }}>{pt.channel.displayName}</b></div>{pt.media?.[0]?.thumbUrl && <img src={pt.media[0].thumbUrl} alt="" style={{ width: '100%', borderRadius: 8, marginBottom: 8 }} />}<p style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{pt.text}</p>{pt.metrics && <div className="metrics">{pt.metrics.impressions != null && <span>👁 {compact(pt.metrics.impressions)}</span>}<span>♥ {compact(pt.metrics.likes ?? 0)}</span><span>💬 {compact(pt.metrics.comments ?? 0)}</span></div>}{pt.externalUrl && <a className="btn ghost sm" href={pt.externalUrl} target="_blank" rel="noreferrer" style={{ marginTop: 8 }}>View on {NETWORK_LABEL[pt.channel.network]} ↗</a>}</div> : <div className="card subtle">Select a post to see its details.</div>; })()}</aside>}
@@ -59,10 +61,14 @@ function CommunityInner() {
   );
 }
 
-function CommentCard({ c, focused, onFocus, ent, grid }: { c: any; focused: boolean; onFocus: () => void; ent: any; grid: boolean }) {
+const TRIAGE_LABEL: Record<string, string> = { positive: '🙂 Positive', neutral: '😐 Neutral', negative: '☹ Negative', needs_review: '⚑ Needs review' };
+function CommentCard({ c, focused, onFocus, ent, grid, members, slaMinutes }: { c: any; focused: boolean; onFocus: () => void; ent: any; grid: boolean; members: any[]; slaMinutes: number }) {
   const [reply, setReply] = useState(''); const [suggesting, setSuggesting] = useState(false);
   const inv = { invalidate: [['comments'], ['unanswered']] };
   const send = useMutate(M.replyToComment, { ...inv, success: 'Reply sent', onSuccess: () => setReply('') }); const like = useMutate(M.likeComment, { success: 'Liked' }); const hide = useMutate(M.hideComment, inv); const del = useMutate(M.deleteComment, { ...inv, success: 'Comment deleted' }); const resolve = useMutate(M.resolveComments, inv);
+  const assign = useMutate(M.assignComment, { ...inv, success: 'Assignment updated' }); const triage = useMutate(M.setCommentTriage, inv);
+  const overdue = c.waitingMinutes != null && c.waitingMinutes >= slaMinutes;
+  const activeMembers = members.filter((m: any) => m.status === 'ACTIVE' && m.account);
   const saved = useGql<any>(['savedReplies'], Q.savedReplies);
   const cap = c.capabilities ?? {}; const answered = !!c.repliedAt || !!c.resolvedAt;
   const suggest = async () => { setSuggesting(true); try { const r = await rest('/ai/suggest-reply', { method: 'POST', json: { commentId: c.id } }); setReply(r.text); } catch (e: any) { toast(e.message, { tone: 'danger', extensions: e }); } finally { setSuggesting(false); } };
@@ -76,7 +82,7 @@ function CommentCard({ c, focused, onFocus, ent, grid }: { c: any; focused: bool
       <Avatar src={c.authorAvatarUrl} name={c.authorName ?? c.authorHandle} network={c.channel.network} />
       <div style={{ minWidth: 0 }}>
         {grid && media?.thumbUrl && <img src={media.thumbUrl} alt="" style={{ width: '100%', borderRadius: 8, marginBottom: 6, maxHeight: 160, objectFit: 'cover' }} />}
-        <div className="who"><b>{c.authorName ?? c.authorHandle ?? 'Unknown'}</b>{c.authorHandle && c.authorName && <span className="subtle">{c.authorHandle}</span>}<span className="subtle">· {timeAgo(c.externalCreatedAt)} · {c.channel.displayName}</span>{c.kind === 'MENTION' && <span className="tag info">Mention</span>}{c.kind === 'REVIEW' && <span className="tag warn">Review</span>}{c.kind === 'DM' && <span className="tag">DM</span>}{c.triage === 'needs_review' && <span className="tag danger">Needs review</span>}{c.labels?.filter((l: string) => l !== 'negative').slice(0, 2).map((l: string) => <span key={l} className="tag">{l.replace('_', ' ')}</span>)}{c.isHidden && <span className="tag">Hidden</span>}</div>
+        <div className="who"><b>{c.authorName ?? c.authorHandle ?? 'Unknown'}</b>{c.authorHandle && c.authorName && <span className="subtle">{c.authorHandle}</span>}<span className="subtle">· {timeAgo(c.externalCreatedAt)} · {c.channel.displayName}</span>{c.kind === 'MENTION' && <span className="tag info">Mention</span>}{c.kind === 'REVIEW' && <span className="tag warn">Review</span>}{c.kind === 'DM' && <span className="tag">DM</span>}{c.triage === 'needs_review' && <span className="tag danger">Needs review</span>}{c.triage === 'negative' && <span className="tag danger">Negative</span>}{c.triage === 'positive' && <span className="tag" style={{ color: 'var(--success)' }}>Positive</span>}{c.labels?.filter((l: string) => l !== 'negative').slice(0, 2).map((l: string) => <span key={l} className="tag">{l.replace('_', ' ')}</span>)}{c.isHidden && <span className="tag">Hidden</span>}{overdue && <span className="tag danger" title={`Waiting ${c.waitingMinutes >= 60 ? Math.floor(c.waitingMinutes / 60) + 'h' : c.waitingMinutes + 'm'} — past the ${slaMinutes >= 60 ? Math.round(slaMinutes / 60) + 'h' : slaMinutes + 'm'} target`}><Clock size={11} /> Overdue</span>}{c.assignee && <span className="tag" title={`Assigned to ${c.assignee.name ?? c.assignee.email}`}><Avatar src={c.assignee.avatarUrl} name={c.assignee.name ?? c.assignee.email} size="sm" /> {(c.assignee.name ?? c.assignee.email).split(' ')[0]}</span>}</div>
         <p className="body">{c.text}</p>
         {c.replies?.length > 0 && <div style={{ borderLeft: '2px solid var(--border)', paddingLeft: 10, marginBottom: 8 }}>{c.replies.map((r: any) => <p key={r.id} className="subtle" style={{ margin: '2px 0' }}><b>{r.isOurs ? 'You' : r.authorName}</b>: {r.text}</p>)}</div>}
         <div className="ops">
@@ -84,6 +90,15 @@ function CommentCard({ c, focused, onFocus, ent, grid }: { c: any; focused: bool
           {cap.hide && <button className="btn ghost sm" onClick={() => hide.mutate({ id: c.id, hidden: !c.isHidden })}><EyeOff size={13} /> {c.isHidden ? 'Unhide' : 'Hide'}</button>}
           {cap.delete && <button className="btn ghost sm" onClick={() => confirm('Delete this comment on the network?') && del.mutate({ id: c.id })}><Trash2 size={13} /> Delete</button>}
           <button className="btn ghost sm" onClick={() => resolve.mutate({ ids: [c.id], resolved: !c.resolvedAt })}><Check size={13} /> {c.resolvedAt ? 'Unresolve' : 'Resolve'}</button>
+          <Menu trigger={<button className="btn ghost sm" title="Assign to a teammate"><UserPlus size={13} /> {c.assignee ? 'Reassign' : 'Assign'}</button>}>
+            {c.assignedToAccountId && <MenuItem onSelect={() => assign.mutate({ id: c.id, accountId: null })}>Unassign</MenuItem>}
+            {activeMembers.map((m: any) => <MenuItem key={m.account.id} onSelect={() => assign.mutate({ id: c.id, accountId: m.account.id })}>{c.assignedToAccountId === m.account.id ? '✓ ' : ''}{m.account.name ?? m.account.email}</MenuItem>)}
+            {!activeMembers.length && <MenuItem onSelect={() => (window.location.href = '/settings/team')}>Invite teammates…</MenuItem>}
+          </Menu>
+          <Menu trigger={<button className="btn ghost sm" title="Set sentiment"><SmilePlus size={13} /> Sentiment</button>}>
+            {Object.entries(TRIAGE_LABEL).map(([k, label]) => <MenuItem key={k} onSelect={() => triage.mutate({ id: c.id, triage: k })}>{c.triage === k ? '✓ ' : ''}{label}</MenuItem>)}
+            {c.triage && <MenuItem onSelect={() => triage.mutate({ id: c.id, triage: null })}>Clear</MenuItem>}
+          </Menu>
           {c.postTarget?.externalUrl && <a className="btn ghost sm" href={c.postTarget.externalUrl} target="_blank" rel="noreferrer">Open post ↗</a>}
           <button className="btn ghost sm" onClick={() => { navigator.clipboard.writeText(`${location.origin}/community?comment=${c.id}`); toast('Link copied'); }}>Copy link</button>
         </div>
