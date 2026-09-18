@@ -7,6 +7,7 @@ import pino from 'pino';
 import { env } from '@relay/config';
 import { AppModule } from './app.module.js';
 import { createYoga } from './graphql/yoga.js';
+import { DomainExceptionFilter } from './common/domain-exception.filter.js';
 
 const log = pino({ name: 'api' });
 
@@ -23,6 +24,9 @@ async function bootstrap() {
   // GraphQL (web app + public API share one endpoint; context decides scopes)
   const yoga = createYoga();
   app.use('/graphql', yoga);
+
+  // Map DomainError / Zod parse errors thrown by REST controllers to proper HTTP statuses
+  app.useGlobalFilters(new DomainExceptionFilter());
 
   app.enableShutdownHooks();
   const port = Number(process.env.PORT ?? new URL(env.API_URL).port ?? 4000);
