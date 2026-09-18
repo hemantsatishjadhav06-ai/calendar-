@@ -72,6 +72,7 @@ async function main() {
   // already have them from 0001's CREATE TYPE). Runs as its own autocommit statement — ADD VALUE
   // cannot run inside a transaction block on older Postgres. IF NOT EXISTS makes it idempotent.
   await tryRun('Network enum: DEVTO', `ALTER TYPE "Network" ADD VALUE IF NOT EXISTS 'DEVTO'`);
+  await tryRun('Network enum: DISCORD', `ALTER TYPE "Network" ADD VALUE IF NOT EXISTS 'DISCORD'`);
 
   await run('grants', `
     GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO relay, relay_vault;

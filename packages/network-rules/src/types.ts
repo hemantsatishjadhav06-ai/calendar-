@@ -1,6 +1,6 @@
 import type { ZodTypeAny } from 'zod';
 
-export type Network = 'FACEBOOK' | 'INSTAGRAM' | 'THREADS' | 'X' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'PINTEREST' | 'GOOGLE_BUSINESS' | 'BLUESKY' | 'MASTODON' | 'DEVTO' | 'START_PAGE';
+export type Network = 'FACEBOOK' | 'INSTAGRAM' | 'THREADS' | 'X' | 'LINKEDIN' | 'TIKTOK' | 'YOUTUBE' | 'PINTEREST' | 'GOOGLE_BUSINESS' | 'BLUESKY' | 'MASTODON' | 'DEVTO' | 'DISCORD' | 'START_PAGE';
 
 export interface MediaLite {
   assetId: string;

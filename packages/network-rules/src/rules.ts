@@ -140,8 +140,20 @@ export const devtoRules: NetworkRules = {
   metadataSchema: z.object({ title: z.string().min(1).max(250), tags: z.array(z.string().regex(/^[a-z0-9]+$/i)).max(4).optional(), series: z.string().max(150).optional(), canonicalUrl: z.string().url().optional(), published: z.boolean().optional() }).passthrough(),
 };
 
+// Discord — publishes to a channel via an Incoming Webhook. Message content is capped at 2000 chars;
+// up to 10 attachments (images/gif/video) ride along as multipart files. No native polls/comments API
+// for webhooks. Optional per-post override of the webhook's display name + avatar.
+export const discordRules: NetworkRules = {
+  network: 'DISCORD', label: 'Discord',
+  text: { max: 2000, counter: codepoints },
+  media: { maxImages: 10, maxVideos: 1, mixImagesVideo: true, gif: true, image: { formats: ['jpeg', 'png', 'gif', 'webp'], maxBytes: 8e6 }, video: { formats: ['mp4', 'mov', 'webm'], maxBytes: 8e6, minS: 0, maxS: 3600 }, altTextMax: 1024 },
+  features: { firstComment: false, location: false, userTags: false, linkPreviewEditable: 'none', polls: false, scheduleNative: false, notifyMe: false, like: false, hide: false, deleteComment: false, reply: false },
+  quota: { note: 'Publishing via an Incoming Webhook' },
+  metadataSchema: z.object({ username: z.string().max(80).optional(), avatarUrl: z.string().url().optional(), tts: z.boolean().optional() }).passthrough(),
+};
+
 export const RULES: Record<string, NetworkRules> = {
   FACEBOOK: facebookRules, INSTAGRAM: instagramRules, THREADS: threadsRules, X: xRules, LINKEDIN: linkedinRules, TIKTOK: tiktokRules,
-  YOUTUBE: youtubeRules, PINTEREST: pinterestRules, GOOGLE_BUSINESS: gbpRules, BLUESKY: blueskyRules, MASTODON: mastodonRules, DEVTO: devtoRules, START_PAGE: startPageRules,
+  YOUTUBE: youtubeRules, PINTEREST: pinterestRules, GOOGLE_BUSINESS: gbpRules, BLUESKY: blueskyRules, MASTODON: mastodonRules, DEVTO: devtoRules, DISCORD: discordRules, START_PAGE: startPageRules,
 };
 export const rulesFor = (network: string): NetworkRules => { const r = RULES[network]; if (!r) throw new Error(`No rules for ${network}`); return r; };

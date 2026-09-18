@@ -163,6 +163,7 @@ enum Network {
   BLUESKY
   MASTODON
   DEVTO
+  DISCORD
   START_PAGE
 }
 enum ChannelStatus {
