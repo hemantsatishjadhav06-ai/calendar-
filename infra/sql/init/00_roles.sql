@@ -3,6 +3,7 @@ CREATE EXTENSION IF NOT EXISTS timescaledb;
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- gen_random_bytes(), used by uuid_generate_v7()
 
 -- uuid v7 (time-ordered) generator
 CREATE OR REPLACE FUNCTION uuid_generate_v7() RETURNS uuid AS $$

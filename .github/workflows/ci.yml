@@ -16,9 +16,11 @@ jobs:
         image: redis:7-alpine
         ports: ["6379:6379"]
     env:
-      DATABASE_URL: postgresql://relay_admin:relay@localhost:5432/relay
+      # Each client uses its own role so RLS is actually exercised: the app role is
+      # RLS-enforced, admin bypasses RLS, and only the vault role may read credentials.
+      DATABASE_URL: postgresql://relay:relay@localhost:5432/relay
       DATABASE_URL_ADMIN: postgresql://relay_admin:relay@localhost:5432/relay
-      DATABASE_URL_VAULT: postgresql://relay_admin:relay@localhost:5432/relay
+      DATABASE_URL_VAULT: postgresql://relay_vault:relay@localhost:5432/relay
       REDIS_URL: redis://localhost:6379
       SESSION_SECRET: ci-secret-ci-secret-ci-secret-ci-secret
       LOCAL_MASTER_KEY_HEX: "0000000000000000000000000000000000000000000000000000000000000000"
@@ -31,12 +33,14 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: psql "$DATABASE_URL_ADMIN" -f infra/sql/init/00_roles.sql
       - run: pnpm db:generate
-      - run: pnpm --filter @relay/db exec prisma migrate deploy && pnpm --filter @relay/db exec node --import tsx scripts/apply-sql.ts
+      # Schema is defined by the hand-written SQL in packages/db/sql (no Prisma migrations dir),
+      # applied idempotently by apply-sql.ts as the relay_admin role.
+      - run: pnpm --filter @cadence/db exec node --import tsx scripts/apply-sql.ts
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
       - name: Public GraphQL schema diff
-        run: pnpm --filter @relay/graphql run schema:check
+        run: pnpm --filter @cadence/graphql run schema:check
       - run: pnpm build
   docker:
     if: github.ref == 'refs/heads/main'
