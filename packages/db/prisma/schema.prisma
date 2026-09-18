@@ -108,6 +108,7 @@ model Organization {
   comments       Comment[]
   notifications  Notification[]
   calendarEvents CalendarEvent[]
+  savedMentions  SavedMention[]
 }
 
 enum OrgRole {
@@ -723,6 +724,18 @@ model NotificationPref {
   key       String
   enabled   Boolean @default(true)
   @@id([accountId, key])
+}
+
+/** Reusable @-mention placeholders saved per workspace, inserted into the composer. */
+model SavedMention {
+  id             String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  label          String
+  value          String
+  network        String?
+  createdAt      DateTime     @default(now())
+  @@index([organizationId])
 }
 
 /** Campaign / holiday / launch annotations overlaid on the publishing calendar (not posts). */

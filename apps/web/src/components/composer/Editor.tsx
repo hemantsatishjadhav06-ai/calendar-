@@ -1,6 +1,10 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Smile, Hash, Link2, ImagePlus, Sparkles, ListPlus, Trash2 } from 'lucide-react';
+import { Smile, Hash, Link2, ImagePlus, Sparkles, ListPlus, Trash2, AtSign } from 'lucide-react';
+import { useGql } from '@/lib/hooks';
+import { M } from '@/lib/queries';
+import { Menu, MenuItem, MenuSep } from '@/components/ui/primitives';
+import { useQueryClient } from '@tanstack/react-query';
 import type { NetworkRules } from '@cadence/network-rules';
 import type { MediaItem, LinkPreview } from './store';
 import { gqlRequest } from '@/lib/api';
@@ -45,6 +49,7 @@ export function Editor({ value, onChange, rules, channelMeta, premium, linkPrevi
             {emoji && <div className="popover" role="dialog" aria-label="Emoji picker" style={{ position: 'absolute', bottom: 36, left: 0, width: 260, display: 'grid', gridTemplateColumns: 'repeat(10,1fr)', gap: 2 }}>{EMOJI.map(e => <button key={e} className="btn ghost sm" style={{ padding: 4, fontSize: 18 }} onClick={() => { insert(e); setEmoji(false); }}>{e}</button>)}</div>}
           </div>
           <button className="btn ghost icon sm" aria-label="Hashtag manager" onClick={onHashtags}><Hash size={16} /></button>
+          <MentionMenu onInsert={m => insert((value && !value.endsWith(' ') ? ' ' : '') + m)} />
           <button className="btn ghost icon sm" aria-label="Insert link" onClick={() => { const u = prompt('Paste a link'); if (u) insert((value.endsWith(' ') || !value ? '' : ' ') + u); }}><Link2 size={16} /></button>
           <button className="btn ghost icon sm" aria-label="Add media" onClick={() => document.dispatchEvent(new CustomEvent('relay:open-media'))}><ImagePlus size={16} /></button>
           <button className="btn ghost icon sm" aria-label="AI Assistant" onClick={onAi}><Sparkles size={16} /></button>
@@ -80,5 +85,29 @@ function LinkCard({ preview, editable, onChange, onRemove }: { preview: LinkPrev
       </div>
       <button className="btn ghost icon sm" aria-label="Remove link preview" onClick={onRemove}>✕</button>
     </div>
+  );
+}
+
+function MentionMenu({ onInsert }: { onInsert: (m: string) => void }) {
+  const qc = useQueryClient();
+  const mentions = useGql<{ savedMentions: any[] }>(['savedMentions'], Q.savedMentions);
+  const list = mentions.data?.savedMentions ?? [];
+  const add = async () => {
+    const value = prompt('Mention to save (e.g. @acme). It will be inserted into the post text as-is.');
+    if (!value?.trim()) return;
+    const label = prompt('Label for this mention', value.replace(/^@/, '')) ?? value;
+    await gqlRequest(M.saveSavedMention, { label, value });
+    qc.invalidateQueries({ queryKey: ['savedMentions'] });
+  };
+  const remove = async (id: string) => { await gqlRequest(M.deleteSavedMention, { id }); qc.invalidateQueries({ queryKey: ['savedMentions'] }); };
+  return (
+    <Menu trigger={<button className="btn ghost icon sm" aria-label="Insert a saved mention"><AtSign size={16} /></button>} align="start">
+      {list.map((m: any) => (
+        <MenuItem key={m.id} onSelect={() => onInsert(m.value)}>{m.label}<span className="subtle" style={{ marginLeft: 6 }}>{m.value}</span></MenuItem>
+      ))}
+      {list.length > 0 && <MenuSep />}
+      <MenuItem onSelect={add}>+ Save a mention…</MenuItem>
+      {list.length > 0 && <MenuItem danger onSelect={() => { const m = list[list.length - 1]; if (confirm(`Remove saved mention "${m.label}"?`)) remove(m.id); }}>Remove last</MenuItem>}
+    </Menu>
   );
 }

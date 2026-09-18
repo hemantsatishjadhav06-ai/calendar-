@@ -514,6 +514,16 @@ CREATE TABLE IF NOT EXISTS "NotificationPref" (
   "enabled" boolean NOT NULL DEFAULT true,
   PRIMARY KEY ("accountId", "key")
 );
+CREATE TABLE IF NOT EXISTS "SavedMention" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
+  "organizationId" uuid NOT NULL,
+  "label" text NOT NULL,
+  "value" text NOT NULL,
+  "network" text,
+  "createdAt" timestamp(3) NOT NULL DEFAULT now(),
+  PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "SavedMention_organizationId_idx" ON "SavedMention" ("organizationId");
 CREATE TABLE IF NOT EXISTS "CalendarEvent" (
   "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
   "organizationId" uuid NOT NULL,
