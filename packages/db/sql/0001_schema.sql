@@ -514,6 +514,21 @@ CREATE TABLE IF NOT EXISTS "NotificationPref" (
   "enabled" boolean NOT NULL DEFAULT true,
   PRIMARY KEY ("accountId", "key")
 );
+CREATE TABLE IF NOT EXISTS "Notification" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
+  "organizationId" uuid NOT NULL,
+  "accountId" uuid NOT NULL,
+  "type" text NOT NULL,
+  "title" text NOT NULL,
+  "body" text,
+  "url" text,
+  "data" jsonb NOT NULL DEFAULT '{}',
+  "readAt" timestamp(3),
+  "createdAt" timestamp(3) NOT NULL DEFAULT now(),
+  PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "Notification_accountId_readAt_createdAt_idx" ON "Notification" ("accountId", "readAt", "createdAt");
+CREATE INDEX IF NOT EXISTS "Notification_organizationId_idx" ON "Notification" ("organizationId");
 CREATE TABLE IF NOT EXISTS "AuditLog" (
   "id" bigserial NOT NULL,
   "organizationId" uuid NOT NULL,

@@ -263,3 +263,19 @@ button,input,textarea,select{font:inherit;color:inherit}
 .price{font-size:var(--text-3xl);font-weight:800}
 @media (max-width:1024px){.shell{grid-template-columns:1fr}.sidebar{position:fixed;left:0;top:0;transform:translateX(-100%);transition:transform var(--dur) var(--ease);z-index:30;width:var(--sidebar-w)}.shell[data-nav-open="true"] .sidebar{transform:none}.content{padding:16px}}
 @media print{.sidebar,.topbar,.actions{display:none}.shell{grid-template-columns:1fr}}
+
+/* ─── Notification bell ─── */
+.noti-dot{position:absolute;top:-2px;right:-2px;min-width:16px;height:16px;padding:0 4px;border-radius:var(--radius-pill);background:var(--danger);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;line-height:1;border:2px solid var(--bg-surface)}
+.noti-pop{width:360px;max-width:calc(100vw - 24px);background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);overflow:hidden;z-index:50}
+.noti-head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border)}
+.noti-list{max-height:min(420px,60vh);overflow-y:auto}
+.noti-empty{padding:28px 14px;text-align:center}
+.noti-item{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;padding:11px 14px;border:0;border-bottom:1px solid var(--border);background:none;cursor:pointer;color:var(--fg)}
+.noti-item:last-child{border-bottom:0}
+.noti-item:hover{background:var(--bg-subtle)}
+.noti-item[data-unread="true"]{background:var(--green-50)}
+[data-theme="dark"] .noti-item[data-unread="true"]{background:rgba(143,198,125,.10)}
+.noti-unread{flex:none;width:8px;height:8px;border-radius:50%;background:var(--fill-brand);margin-top:5px}
+.noti-title{font-size:var(--text-sm);font-weight:600;line-height:1.35}
+.noti-body{font-size:var(--text-xs);margin-top:2px;line-height:1.4}
+.noti-time{font-size:11px;margin-top:3px}

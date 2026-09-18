@@ -5,6 +5,7 @@ import { within } from '@cadence/entitlements';
 import { QueuesService } from '../infra/queues.service.js';
 import { ShortenerService } from '../links/shortener.service.js';
 import { events } from '../events/events.bus.js';
+import { pushNotification, pushToMany } from '../notifications/notify.js';
 import { mail } from '../mail/mail.js';
 import { env } from '@cadence/config';
 
@@ -210,7 +211,9 @@ export class PostsService {
     const targets = await this.db.postTarget.findMany({ where: { postId }, include: { channel: true } });
     await this.place(targets, decision.mode, status);
     const requester = await prismaAdmin.account.findUnique({ where: { id: post.approval!.requestedByAccountId } });
-    if (requester) await mail.send({ to: requester.email, template: 'approval_decided', data: { channel: targets.map(t => t.channel.displayName).join(', '), decision: 'Approved', url: `${env.APP_URL}/channels/${targets[0]?.channelId}/queue` } });
+    const chNames = targets.map(t => t.channel.displayName).join(', ');
+    if (requester) await mail.send({ to: requester.email, template: 'approval_decided', data: { channel: chNames, decision: 'Approved', url: `${env.APP_URL}/channels/${targets[0]?.channelId}/queue` } });
+    if (post.approval!.requestedByAccountId !== this.account.id) await pushNotification({ organizationId: this.tenant.organizationId, accountId: post.approval!.requestedByAccountId, type: 'approval.approved', title: 'Post approved', body: `${this.account.name ?? this.account.email} approved your post for ${chNames}`, url: `/channels/${targets[0]?.channelId}/queue` });
     for (const t of targets) events.publish(this.tenant.organizationId, { type: 'queue.changed', channelId: t.channelId });
   }
   async reject(postId: string, reason?: string) {
@@ -223,7 +226,9 @@ export class PostsService {
       if (reason) await tx.note.create({ data: { organizationId: this.tenant.organizationId, postId, authorAccountId: this.account.id, body: `Rejected: ${reason}` } });
     });
     const requester = await prismaAdmin.account.findUnique({ where: { id: post.approval!.requestedByAccountId } });
-    if (requester) await mail.send({ to: requester.email, template: 'approval_decided', data: { channel: post.targets.map(t => t.channel.displayName).join(', '), decision: 'Rejected', reason, url: `${env.APP_URL}/channels/${post.targets[0]?.channelId}/drafts` } });
+    const chNames = post.targets.map(t => t.channel.displayName).join(', ');
+    if (requester) await mail.send({ to: requester.email, template: 'approval_decided', data: { channel: chNames, decision: 'Rejected', reason, url: `${env.APP_URL}/channels/${post.targets[0]?.channelId}/drafts` } });
+    if (post.approval!.requestedByAccountId !== this.account.id) await pushNotification({ organizationId: this.tenant.organizationId, accountId: post.approval!.requestedByAccountId, type: 'approval.rejected', title: 'Changes requested', body: `${this.account.name ?? this.account.email} requested changes on your post${reason ? `: ${reason}` : ''}`, url: `/channels/${post.targets[0]?.channelId}/drafts` });
   }
   async requestApproval(postId: string) {
     const post = await this.db.post.findFirstOrThrow({ where: { id: postId, organizationId: this.tenant.organizationId, status: 'DRAFT' }, include: { targets: { include: { channel: true } } } });
@@ -244,7 +249,9 @@ export class PostsService {
     const members = await prismaAdmin.membership.findMany({ where: { organizationId: this.tenant.organizationId, status: 'ACTIVE' }, include: { account: true, channelGrants: true } });
     const approvers = members.filter(m => m.role !== 'MEMBER' || targets.every(t => m.channelGrants.find(g => g.channelId === t.channelId)?.publish === 'FULL'));
     const preview = targets[0]?.text.slice(0, 120) ?? '';
-    for (const m of approvers) if (m.accountId !== this.account.id) await mail.send({ to: m.account.email, template: 'approval_requested', data: { requester: this.account.name ?? this.account.email, channel: targets.map(t => t.channel.displayName).join(', '), preview, url: `${env.APP_URL}/channels/${targets[0]?.channelId}/approvals` } });
+    const chNames = targets.map(t => t.channel.displayName).join(', ');
+    for (const m of approvers) if (m.accountId !== this.account.id) await mail.send({ to: m.account.email, template: 'approval_requested', data: { requester: this.account.name ?? this.account.email, channel: chNames, preview, url: `${env.APP_URL}/channels/${targets[0]?.channelId}/approvals` } });
+    await pushToMany(approvers.map(m => m.accountId), { organizationId: this.tenant.organizationId, type: 'approval.requested', title: 'Approval requested', body: `${this.account.name ?? this.account.email} needs your approval for ${chNames}`, url: `/channels/${targets[0]?.channelId}/approvals` }, this.account.id);
     events.publish(this.tenant.organizationId, { type: 'approval.requested', postId });
   }
 
