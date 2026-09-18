@@ -1,0 +1,32 @@
+{
+  "name": "@relay/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "generate": "prisma generate",
+    "migrate:dev": "prisma migrate dev",
+    "migrate:deploy": "prisma migrate deploy && node --import tsx scripts/apply-sql.ts",
+    "seed": "node --import tsx prisma/seed.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "release": "node scripts/release.mjs"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.0.0",
+    "@relay/config": "workspace:*",
+    "@prisma/adapter-pg": "^6.19.3",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@pothos/core": "^4.3.0",
+    "@pothos/plugin-prisma": "^4.4.0",
+    "graphql": "^16.9.0",
+    "prisma": "^6.0.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.3"
+  }
+}

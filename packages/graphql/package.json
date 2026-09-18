@@ -1,0 +1,11 @@
+{
+  "name": "@relay/graphql",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "schema:emit": "pnpm --filter @relay/api run schema:emit",
+    "schema:check": "pnpm schema:emit && graphql-inspector diff schema.public.graphql ../../apps/api/schema.graphql --rule suppressRemovalOfDeprecatedField || (echo 'Breaking change in public GraphQL schema — bump version or add @deprecated first' && exit 1)"
+  },
+  "devDependencies": { "@graphql-inspector/cli": "^5.0.6", "graphql": "^16.9.0" }
+}

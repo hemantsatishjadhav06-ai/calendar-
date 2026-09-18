@@ -1,0 +1,9 @@
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/coverage
+packages/db/.fake-engines
+packages/db/src/pothos-types.ts
+.git
+*.log

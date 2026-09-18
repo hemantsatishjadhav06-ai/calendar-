@@ -1,0 +1,52 @@
+{{- range $name, $app := .Values.apps }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: relay-{{ $name }}
+  labels: { app.kubernetes.io/name: relay, app.kubernetes.io/component: {{ $name }} }
+spec:
+  replicas: {{ $app.replicas }}
+  selector: { matchLabels: { app.kubernetes.io/name: relay, app.kubernetes.io/component: {{ $name }} } }
+  strategy: { type: RollingUpdate, rollingUpdate: { maxUnavailable: 0, maxSurge: 1 } }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: relay, app.kubernetes.io/component: {{ $name }} }
+    spec:
+      {{- with $app.nodeSelector }}
+      nodeSelector: {{ toYaml . | nindent 8 }}
+      {{- end }}
+      terminationGracePeriodSeconds: {{ if or (eq $name "worker") (eq $name "media") }}600{{ else }}30{{ end }}
+      containers:
+        - name: {{ $name }}
+          image: "{{ $.Values.image.repository }}/{{ if or (eq $name "media") (eq $name "ingest") }}{{ if eq $name "media" }}worker{{ else }}api{{ end }}{{ else }}{{ $name }}{{ end }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          env:
+            {{- range $k, $v := $.Values.env }}
+            - { name: {{ $k }}, value: {{ $v | quote }} }
+            {{- end }}
+            {{- if $app.role }}
+            - { name: WORKER_ROLE, value: {{ $app.role | quote }} }
+            {{- end }}
+            {{- if $app.port }}
+            - { name: PORT, value: {{ $app.port | quote }} }
+            {{- end }}
+          envFrom:
+            - secretRef: { name: {{ $.Values.secretName }} }
+          {{- if $app.port }}
+          ports: [{ containerPort: {{ $app.port }}, name: http }]
+          readinessProbe: { httpGet: { path: {{ if eq $name "web" }}/login{{ else if eq $name "api" }}/health{{ else if eq $name "ingest" }}/health{{ else }}/healthz{{ end }}, port: http }, initialDelaySeconds: 5, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: {{ if eq $name "web" }}/login{{ else if eq $name "api" }}/health{{ else if eq $name "ingest" }}/health{{ else }}/healthz{{ end }}, port: http }, initialDelaySeconds: 20, periodSeconds: 20 }
+          {{- end }}
+          resources: {{ toYaml $app.resources | nindent 12 }}
+          securityContext: { runAsNonRoot: true, allowPrivilegeEscalation: false, readOnlyRootFilesystem: false }
+{{- if $app.port }}
+---
+apiVersion: v1
+kind: Service
+metadata: { name: relay-{{ $name }} }
+spec:
+  selector: { app.kubernetes.io/name: relay, app.kubernetes.io/component: {{ $name }} }
+  ports: [{ port: 80, targetPort: http, name: http }]
+{{- end }}
+{{- end }}

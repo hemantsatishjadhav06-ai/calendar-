@@ -1,0 +1,20 @@
+# Pre-sync hook (ArgoCD) / pre-install,pre-upgrade (Helm): run Prisma migrations + RLS/Timescale SQL before pods roll.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: relay-migrate-{{ .Release.Revision }}
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+    helm.sh/hook: pre-install,pre-upgrade
+    helm.sh/hook-weight: "-5"
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.repository }}/api:{{ .Values.image.tag }}"
+          command: ["sh", "-c", "pnpm --filter @relay/db exec prisma migrate deploy && pnpm --filter @relay/db exec node --import tsx scripts/apply-sql.ts"]
+          envFrom: [{ secretRef: { name: {{ .Values.secretName }} } }]

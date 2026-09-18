@@ -1,0 +1,22 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": [".env"],
+  "envMode": "loose",
+  "globalEnv": [
+    "NODE_ENV",
+    "SESSION_SECRET",
+    "DATABASE_URL",
+    "DATABASE_URL_ADMIN",
+    "DATABASE_URL_VAULT",
+    "REDIS_URL",
+    "LOCAL_MASTER_KEY_HEX",
+    "KMS_TOKEN_KEY_ARN"
+  ],
+  "tasks": {
+    "build": { "dependsOn": ["^build"], "outputs": ["dist/**", ".next/**", "!.next/cache/**"] },
+    "dev": { "cache": false, "persistent": true },
+    "lint": {},
+    "typecheck": { "dependsOn": ["^build"] },
+    "test": { "dependsOn": ["^build"], "outputs": ["coverage/**"] }
+  }
+}

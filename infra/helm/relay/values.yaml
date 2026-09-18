@@ -1,0 +1,39 @@
+image:
+  repository: ghcr.io/your-org/relay
+  tag: latest
+  pullPolicy: IfNotPresent
+
+env:
+  APP_URL: https://app.relay.example
+  API_URL: https://api.relay.example
+  SHORT_BASE: https://rly.to
+  MEDIA_CDN_BASE: https://media.relay.example
+  LI_VERSION: "202509"
+  AI_PROVIDER: openai
+# All secrets come from ExternalSecrets → this Secret name
+secretName: relay-secrets
+
+apps:
+  web:       { replicas: 2, port: 3000, resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { cpu: 1000m, memory: 1Gi } } }
+  api:       { replicas: 3, port: 4000, resources: { requests: { cpu: 500m, memory: 1Gi }, limits: { cpu: 2000m, memory: 2Gi } } }
+  ingest:    { replicas: 2, port: 4000, role: ingest, resources: { requests: { cpu: 250m, memory: 512Mi }, limits: { cpu: 1000m, memory: 1Gi } } }
+  worker:    { replicas: 3, role: all, resources: { requests: { cpu: 500m, memory: 1Gi }, limits: { cpu: 2000m, memory: 3Gi } } }
+  media:     { replicas: 2, role: media, resources: { requests: { cpu: 2000m, memory: 4Gi }, limits: { cpu: 4000m, memory: 8Gi } }, nodeSelector: { workload: spot } }
+  startpage: { replicas: 2, port: 4100, resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } } }
+  mcp:       { replicas: 2, port: 4200, resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } } }
+
+keda:
+  enabled: true
+  redisAddress: redis:6379
+  publish: { minReplicas: 2, maxReplicas: 20, listLength: 50, prewarm: { start: "55 * * * *", end: "5 * * * *", replicas: 6 } }
+  media:   { minReplicas: 1, maxReplicas: 8, listLength: 5 }
+
+ingress:
+  className: alb
+  hosts:
+    - { host: app.relay.example, service: web }
+    - { host: api.relay.example, service: api }
+    - { host: hooks.relay.example, service: ingest }
+    - { host: "*.start.relay.example", service: startpage }
+    - { host: mcp.relay.example, service: mcp }
+    - { host: rly.to, service: api, path: /r }

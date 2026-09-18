@@ -1,0 +1,763 @@
+generator client {
+  provider        = "prisma-client-js"
+  engineType      = "client"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+// Type metadata + runtime datamodel for @pothos/plugin-prisma.
+// Output to a .ts module so it also emits getDatamodel(); the query-compiler client
+// strips Prisma.dmmf, so the API builder feeds getDatamodel() to Pothos instead.
+generator pothos {
+  provider     = "prisma-pothos-types"
+  clientOutput = "@prisma/client"
+  output       = "../src/pothos-types.ts"
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL_ADMIN")
+  extensions = [timescaledb, vector, pg_trgm]
+}
+
+// ───────────────────────── Identity & tenancy ─────────────────────────
+model Account {
+  id                    String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  email                 String    @unique
+  emailVerifiedAt       DateTime?
+  passwordHash          String?
+  name                  String?
+  avatarUrl             String?
+  timezone              String    @default("UTC")
+  weekStartsOn          Int       @default(1)
+  appearance            String    @default("system")
+  landingPage           String    @default("home")
+  defaultScheduleAction String    @default("queue")
+  totpSecretEnc         Bytes?
+  totpEnabledAt         DateTime?
+  recoveryCodesEnc      Bytes?
+  lastOrganizationId    String?   @db.Uuid
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  memberships           Membership[]
+  sessions              Session[]
+  apiKeys               ApiKey[]
+  notificationPrefs     NotificationPref[]
+  oauthIdentities       OAuthIdentity[]
+}
+
+model OAuthIdentity {
+  id         String  @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  accountId  String  @db.Uuid
+  account    Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  provider   String // google | microsoft | workos
+  providerId String
+  @@unique([provider, providerId])
+}
+
+model Session {
+  id        String   @id
+  accountId String   @db.Uuid
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  @@index([accountId])
+}
+
+model Agency {
+  id            String         @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name          String
+  organizations Organization[]
+  createdAt     DateTime       @default(now())
+}
+
+model Organization {
+  id             String        @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name           String
+  slug           String        @unique
+  agencyId       String?       @db.Uuid
+  agency         Agency?       @relation(fields: [agencyId], references: [id])
+  ownerAccountId String        @db.Uuid
+  require2fa     Boolean       @default(false)
+  settings       Json          @default("{}")
+  createdAt      DateTime      @default(now())
+  deletedAt      DateTime?
+  memberships    Membership[]
+  channels       Channel[]
+  channelGroups  ChannelGroup[]
+  posts          Post[]
+  ideas          Idea[]
+  ideaGroups     IdeaGroup[]
+  tags           Tag[]
+  hashtagGroups  HashtagGroup[]
+  templates      Template[]
+  savedReplies   SavedReply[]
+  subscription   Subscription?
+  apiKeys        ApiKey[]
+  oauthClients   OAuthClient[]
+  startPages     StartPage[]
+  reports        Report[]
+  savedViews     SavedView[]
+  auditLogs      AuditLog[]
+  integrations   Integration[]
+  featureFlags   FeatureFlag[]
+  assets         Asset[]
+  shortLinks     ShortLink[]
+  notes          Note[]
+  comments       Comment[]
+}
+
+enum OrgRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+enum PublishAccess {
+  FULL
+  APPROVAL
+  NONE
+}
+enum CommunityAccess {
+  FULL
+  VIEW
+  NONE
+}
+model Membership {
+  id                 String         @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  accountId          String         @db.Uuid
+  organizationId     String         @db.Uuid
+  role               OrgRole        @default(MEMBER)
+  status             String         @default("ACTIVE")
+  invitedByAccountId String?        @db.Uuid
+  invitedEmail       String?
+  inviteToken        String?        @unique
+  createdAt          DateTime       @default(now())
+  account            Account        @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  organization       Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  channelGrants      ChannelGrant[]
+  @@unique([accountId, organizationId])
+}
+
+model ChannelGrant {
+  membershipId String          @db.Uuid
+  channelId    String          @db.Uuid
+  publish      PublishAccess   @default(FULL)
+  community    CommunityAccess @default(FULL)
+  membership   Membership      @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+  channel      Channel         @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  @@id([membershipId, channelId])
+}
+
+// ───────────────────────── Channels ─────────────────────────
+enum Network {
+  FACEBOOK
+  INSTAGRAM
+  THREADS
+  X
+  LINKEDIN
+  TIKTOK
+  YOUTUBE
+  PINTEREST
+  GOOGLE_BUSINESS
+  BLUESKY
+  MASTODON
+  START_PAGE
+}
+enum ChannelStatus {
+  ACTIVE
+  RECONNECT_REQUIRED
+  LOCKED
+  DISCONNECTED
+}
+model Channel {
+  id                   String              @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId       String              @db.Uuid
+  organization         Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  network              Network
+  subtype              String
+  externalId           String
+  displayName          String
+  handle               String?
+  avatarUrl            String?
+  timezone             String              @default("UTC")
+  status               ChannelStatus       @default(ACTIVE)
+  statusReason         String?
+  isPaused             Boolean             @default(false)
+  notifyByDefault      Boolean             @default(false)
+  postingGoalPerWeek   Int?
+  sortOrder            Int                 @default(0)
+  meta                 Json                @default("{}")
+  connectedByAccountId String              @db.Uuid
+  connectedAt          DateTime            @default(now())
+  lastHealthCheckAt    DateTime?
+  inboxCursor          String?
+  metricsCursor        DateTime?
+  deletedAt            DateTime?
+  credential           ChannelCredential?
+  schedule             PostingSlot[]
+  targets              PostTarget[]
+  grants               ChannelGrant[]
+  groups               ChannelGroupMember[]
+  comments             Comment[]
+  metricsDaily         ChannelMetricDaily[]
+  @@unique([organizationId, network, externalId])
+  @@index([organizationId, status])
+}
+
+model ChannelCredential {
+  channelId        String   @id @db.Uuid
+  channel          Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  accessTokenEnc   Bytes
+  refreshTokenEnc  Bytes?
+  extraEnc         Bytes
+  dekEnc           Bytes
+  tokenType        String   @default("bearer")
+  scopes           String[]
+  accessExpiresAt  DateTime?
+  refreshExpiresAt DateTime?
+  lastRefreshedAt  DateTime?
+  refreshFailures  Int      @default(0)
+  updatedAt        DateTime @updatedAt
+}
+
+model ChannelGroup {
+  id             String               @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId String               @db.Uuid
+  organization   Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  members        ChannelGroupMember[]
+  @@unique([organizationId, name])
+}
+
+model ChannelGroupMember {
+  groupId   String       @db.Uuid
+  channelId String       @db.Uuid
+  group     ChannelGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  channel   Channel      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  @@id([groupId, channelId])
+}
+
+model PostingSlot {
+  id          String  @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  channelId   String  @db.Uuid
+  channel     Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  weekday     Int
+  minuteOfDay Int
+  enabled     Boolean @default(true)
+  source      String  @default("manual")
+  @@unique([channelId, weekday, minuteOfDay])
+}
+
+// ───────────────────────── Posts ─────────────────────────
+enum PostStatus {
+  DRAFT
+  PENDING_APPROVAL
+  QUEUED
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  PARTIALLY_PUBLISHED
+  FAILED
+  NOTIFIED
+  CANCELLED
+}
+enum ScheduleMode {
+  QUEUE
+  SHARE_NEXT
+  CUSTOM
+  NOW
+  DRAFT
+}
+enum SchedulingType {
+  AUTOMATIC
+  NOTIFICATION
+}
+model Post {
+  id                 String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId     String       @db.Uuid
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdByAccountId String       @db.Uuid
+  status             PostStatus   @default(DRAFT)
+  scheduleMode       ScheduleMode @default(QUEUE)
+  baseText           String       @default("")
+  baseMedia          Json         @default("[]")
+  linkPreview        Json?
+  ideaId             String?      @db.Uuid
+  templateId         String?      @db.Uuid
+  aiAssisted         Boolean      @default(false)
+  approval           Approval?
+  tags               PostTag[]
+  targets            PostTarget[]
+  notes              Note[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  deletedAt          DateTime?
+  @@index([organizationId, status])
+}
+
+model PostTarget {
+  id              String           @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId  String           @db.Uuid
+  postId          String           @db.Uuid
+  post            Post             @relation(fields: [postId], references: [id], onDelete: Cascade)
+  channelId       String           @db.Uuid
+  channel         Channel          @relation(fields: [channelId], references: [id])
+  status          PostStatus       @default(QUEUED)
+  schedulingType  SchedulingType   @default(AUTOMATIC)
+  isCustomTime    Boolean          @default(false)
+  dueAt           DateTime?
+  queuePosition   Int?
+  customized      Boolean          @default(false)
+  text            String           @default("")
+  media           Json             @default("[]")
+  thread          Json             @default("[]")
+  firstComment    String?
+  metadata        Json             @default("{}")
+  shortLinks      Json             @default("[]")
+  linkPreviewUrl  String?
+  attemptCount    Int              @default(0)
+  lastAttemptAt   DateTime?
+  lockedBy        String?
+  lockedAt        DateTime?
+  externalPostId  String?
+  externalUrl     String?
+  publishedAt     DateTime?
+  failureCode     String?
+  failureMessage  String?
+  notification    NotificationJob?
+  metrics         PostMetric[]
+  comments        Comment[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  @@index([channelId, status, dueAt])
+  @@index([channelId, status, queuePosition])
+  @@index([organizationId, status, dueAt])
+  @@index([channelId, externalPostId])
+}
+
+model NotificationJob {
+  postTargetId String     @id @db.Uuid
+  postTarget   PostTarget @relation(fields: [postTargetId], references: [id], onDelete: Cascade)
+  sentAt       DateTime?
+  resentAt     DateTime?
+  openedAt     DateTime?
+  completedAt  DateTime?
+}
+
+model Approval {
+  postId               String   @id @db.Uuid
+  post                 Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  requestedByAccountId String   @db.Uuid
+  requestedAt          DateTime @default(now())
+  decidedByAccountId   String?  @db.Uuid
+  decidedAt            DateTime?
+  decision             String?
+  reason               String?
+}
+
+model Note {
+  id              String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId  String       @db.Uuid
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  postId          String       @db.Uuid
+  post            Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorAccountId String       @db.Uuid
+  body            String
+  createdAt       DateTime     @default(now())
+  editedAt        DateTime?
+  deletedAt       DateTime?
+  @@index([postId])
+}
+
+model Tag {
+  id             String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  color          String
+  posts          PostTag[]
+  ideas          IdeaTag[]
+  @@unique([organizationId, name])
+}
+
+model PostTag {
+  postId String @db.Uuid
+  tagId  String @db.Uuid
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  @@id([postId, tagId])
+}
+
+model HashtagGroup {
+  id             String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  hashtags       String[]
+  @@unique([organizationId, name])
+}
+
+model Template {
+  id             String        @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId String?       @db.Uuid
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  ownerAccountId String?       @db.Uuid
+  title          String
+  body           String
+  category       String?
+  isLibrary      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+}
+
+// ───────────────────────── Ideas ─────────────────────────
+model IdeaGroup {
+  id             String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  sortOrder      Int          @default(0)
+  ideas          Idea[]
+}
+
+model Idea {
+  id                 String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId     String       @db.Uuid
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  groupId            String?      @db.Uuid
+  group              IdeaGroup?   @relation(fields: [groupId], references: [id])
+  createdByAccountId String       @db.Uuid
+  title              String?
+  body               String       @default("")
+  media              Json         @default("[]")
+  links              Json         @default("[]")
+  sortOrder          Int          @default(0)
+  aiGenerated        Boolean      @default(false)
+  usedAt             DateTime?
+  tags               IdeaTag[]
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  deletedAt          DateTime?
+}
+
+model IdeaTag {
+  ideaId String @db.Uuid
+  tagId  String @db.Uuid
+  idea   Idea   @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  @@id([ideaId, tagId])
+}
+
+// ───────────────────────── Media ─────────────────────────
+model Asset {
+  id                  String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId      String       @db.Uuid
+  organization        Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  uploadedByAccountId String       @db.Uuid
+  kind                String
+  originalKey         String
+  mime                String
+  bytes               Int
+  width               Int?
+  height              Int?
+  durationMs          Int?
+  fps                 Float?
+  codec               String?
+  sha256              String
+  altTextDefault      String?
+  source              String       @default("upload")
+  sourceMeta          Json         @default("{}")
+  renditions          Json         @default("{}")
+  status              String       @default("uploading")
+  error               String?
+  createdAt           DateTime     @default(now())
+  @@index([organizationId, sha256])
+}
+
+// ───────────────────────── Links ─────────────────────────
+model ShortLink {
+  id             String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  slug           String       @unique
+  targetUrl      String
+  postTargetId   String?      @db.Uuid
+  provider       String       @default("relay")
+  createdAt      DateTime     @default(now())
+}
+
+// ───────────────────────── Analytics (hypertables) ─────────────────────────
+model ChannelMetricDaily {
+  channelId String   @db.Uuid
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  day       DateTime @db.Date
+  metric    String
+  value     Float
+  source    String   @default("api")
+  @@id([channelId, day, metric])
+}
+
+model PostMetric {
+  postTargetId String     @db.Uuid
+  postTarget   PostTarget @relation(fields: [postTargetId], references: [id], onDelete: Cascade)
+  capturedAt   DateTime
+  metric       String
+  value        Float
+  @@id([postTargetId, capturedAt, metric])
+}
+
+model AudienceSnapshot {
+  channelId String   @db.Uuid
+  day       DateTime @db.Date
+  dimension String
+  bucket    String
+  value     Float
+  @@id([channelId, day, dimension, bucket])
+}
+
+model Report {
+  id                 String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId     String       @db.Uuid
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name               String
+  description        String?
+  logoAssetId        String?      @db.Uuid
+  charts             Json         @default("[]")
+  createdByAccountId String       @db.Uuid
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+}
+
+// ───────────────────────── Community ─────────────────────────
+enum CommentKind {
+  COMMENT
+  REPLY
+  MENTION
+  REVIEW
+  DM
+}
+model Comment {
+  id                  String                       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId      String                       @db.Uuid
+  organization        Organization                 @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  channelId           String                       @db.Uuid
+  channel             Channel                      @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  postTargetId        String?                      @db.Uuid
+  postTarget          PostTarget?                  @relation(fields: [postTargetId], references: [id])
+  externalPostId      String?
+  externalId          String
+  parentExternalId    String?
+  kind                CommentKind                  @default(COMMENT)
+  authorExternalId    String?
+  authorName          String?
+  authorHandle        String?
+  authorAvatarUrl     String?
+  text                String
+  attachments         Json                         @default("[]")
+  externalCreatedAt   DateTime
+  likeCount           Int                          @default(0)
+  isHidden            Boolean                      @default(false)
+  isDeleted           Boolean                      @default(false)
+  isOurs              Boolean                      @default(false)
+  repliedAt           DateTime?
+  resolvedAt          DateTime?
+  resolvedByAccountId String?                      @db.Uuid
+  assignedToAccountId String?                      @db.Uuid
+  labels              String[]
+  sentiment           Float?
+  triage              String?
+  embedding           Unsupported("vector(1536)")?
+  raw                 Json
+  createdAt           DateTime                     @default(now())
+  @@unique([channelId, externalId])
+  @@index([organizationId, resolvedAt, externalCreatedAt])
+  @@index([channelId, externalPostId])
+}
+
+model SavedReply {
+  id             String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title          String
+  body           String
+  createdAt      DateTime     @default(now())
+}
+
+model SavedView {
+  id             String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  accountId      String       @db.Uuid
+  area           String
+  name           String
+  filters        Json
+  sortOrder      Int          @default(0)
+}
+
+// ───────────────────────── Start Page ─────────────────────────
+model StartPage {
+  id                String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId    String       @db.Uuid
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  slug              String       @unique
+  nickname          String
+  theme             Json
+  header            Json
+  blocks            Json         @default("[]")
+  publishedRevision Json?
+  publishedAt       DateTime?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+}
+
+// ───────────────────────── Billing ─────────────────────────
+enum Plan {
+  FREE
+  ESSENTIALS
+  TEAM
+}
+model Subscription {
+  organizationId       String       @id @db.Uuid
+  organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  plan                 Plan         @default(FREE)
+  interval             String       @default("month")
+  stripeCustomerId     String?      @unique
+  stripeSubscriptionId String?      @unique
+  stripePriceId        String?
+  channelQuantity      Int          @default(3)
+  pendingQuantity      Int?
+  status               String       @default("active")
+  trialEndsAt          DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean      @default(false)
+  updatedAt            DateTime     @updatedAt
+}
+
+// ───────────────────────── Public API ─────────────────────────
+model ApiKey {
+  id             String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  accountId      String       @db.Uuid
+  account        Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  prefix         String
+  hash           String       @unique
+  scopes         String[]
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime     @default(now())
+}
+
+model OAuthClient {
+  id               String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId   String       @db.Uuid
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name             String
+  clientId         String       @unique
+  clientSecretHash String?
+  redirectUris     String[]
+  scopes           String[]
+  isPublic         Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  grants           OAuthGrant[]
+}
+
+model OAuthGrant {
+  id               String      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  clientId         String      @db.Uuid
+  client           OAuthClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  accountId        String      @db.Uuid
+  organizationId   String      @db.Uuid
+  scopes           String[]
+  refreshTokenHash String?     @unique
+  refreshExpiresAt DateTime?
+  revokedAt        DateTime?
+  createdAt        DateTime    @default(now())
+}
+
+// ───────────────────────── Misc ─────────────────────────
+model Integration {
+  id             String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider       String
+  credentialEnc  Bytes
+  dekEnc         Bytes
+  meta           Json         @default("{}")
+  createdAt      DateTime     @default(now())
+  @@unique([organizationId, provider])
+}
+
+model MastodonApp {
+  host         String   @id
+  clientId     String
+  clientSecret String
+  createdAt    DateTime @default(now())
+}
+
+model FeatureFlag {
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  key            String
+  enabled        Boolean
+  @@id([organizationId, key])
+}
+
+model NotificationPref {
+  accountId String  @db.Uuid
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  key       String
+  enabled   Boolean @default(true)
+  @@id([accountId, key])
+}
+
+model AuditLog {
+  id             BigInt       @id @default(autoincrement())
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  actorAccountId String?      @db.Uuid
+  action         String
+  entity         String
+  entityId       String?
+  diff           Json?
+  ip             String?
+  createdAt      DateTime     @default(now())
+  @@index([organizationId, createdAt])
+}
+
+model WebhookInbox {
+  id          BigInt    @id @default(autoincrement())
+  provider    String
+  eventId     String
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+  error       String?
+  payload     Json
+  signatureOk Boolean
+  @@unique([provider, eventId])
+  @@index([processedAt])
+}
+
+model AiUsage {
+  id               BigInt   @id @default(autoincrement())
+  organizationId   String   @db.Uuid
+  accountId        String   @db.Uuid
+  feature          String
+  model            String
+  promptTokens     Int
+  completionTokens Int
+  costUsd          Decimal  @db.Decimal(10, 6)
+  createdAt        DateTime @default(now())
+  @@index([organizationId, createdAt])
+}
+
+model SpendLedger {
+  id             BigInt   @id @default(autoincrement())
+  organizationId String   @db.Uuid
+  provider       String // x
+  amountUsd      Decimal  @db.Decimal(10, 4)
+  ref            String?
+  createdAt      DateTime @default(now())
+  @@index([organizationId, provider, createdAt])
+}

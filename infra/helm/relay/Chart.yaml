@@ -1,0 +1,6 @@
+apiVersion: v2
+name: relay
+description: Relay — social media publishing platform (web, api, worker, ingest, startpage, mcp)
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

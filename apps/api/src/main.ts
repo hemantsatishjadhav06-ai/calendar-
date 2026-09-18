@@ -1,0 +1,32 @@
+import 'reflect-metadata';
+import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import cookieParser from 'cookie-parser';
+import express from 'express';
+import pino from 'pino';
+import { env } from '@relay/config';
+import { AppModule } from './app.module.js';
+import { createYoga } from './graphql/yoga.js';
+
+const log = pino({ name: 'api' });
+
+async function bootstrap() {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false, cors: { origin: env.APP_URL, credentials: true } });
+  app.set('trust proxy', 1);
+  app.use(cookieParser(env.SESSION_SECRET));
+  // Raw body for webhook signature verification; JSON elsewhere
+  app.use('/webhooks', express.raw({ type: '*/*', limit: '5mb' }));
+  app.use('/stripe', express.raw({ type: 'application/json', limit: '2mb' }));
+  app.use(express.json({ limit: '2mb' }));
+  app.use(express.urlencoded({ extended: false }));
+
+  // GraphQL (web app + public API share one endpoint; context decides scopes)
+  const yoga = createYoga();
+  app.use('/graphql', yoga);
+
+  app.enableShutdownHooks();
+  const port = Number(process.env.PORT ?? new URL(env.API_URL).port ?? 4000);
+  await app.listen(port);
+  log.info({ port }, 'api listening');
+}
+bootstrap().catch(e => { log.error(e); process.exit(1); });

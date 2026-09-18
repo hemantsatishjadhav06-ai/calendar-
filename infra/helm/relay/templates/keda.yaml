@@ -1,0 +1,28 @@
+{{- if .Values.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata: { name: relay-worker }
+spec:
+  scaleTargetRef: { name: relay-worker }
+  minReplicaCount: {{ .Values.keda.publish.minReplicas }}
+  maxReplicaCount: {{ .Values.keda.publish.maxReplicas }}
+  cooldownPeriod: 120
+  triggers:
+    - type: redis
+      metadata: { address: {{ .Values.keda.redisAddress | quote }}, listName: "bull:publish:wait", listLength: {{ .Values.keda.publish.listLength | quote }} }
+    - type: redis
+      metadata: { address: {{ .Values.keda.redisAddress | quote }}, listName: "bull:publish:delayed", listLength: "500" }
+    - type: cron
+      metadata: { timezone: UTC, start: {{ .Values.keda.publish.prewarm.start | quote }}, end: {{ .Values.keda.publish.prewarm.end | quote }}, desiredReplicas: {{ .Values.keda.publish.prewarm.replicas | quote }} }
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata: { name: relay-media }
+spec:
+  scaleTargetRef: { name: relay-media }
+  minReplicaCount: {{ .Values.keda.media.minReplicas }}
+  maxReplicaCount: {{ .Values.keda.media.maxReplicas }}
+  triggers:
+    - type: redis
+      metadata: { address: {{ .Values.keda.redisAddress | quote }}, listName: "bull:media:wait", listLength: {{ .Values.keda.media.listLength | quote }} }
+{{- end }}

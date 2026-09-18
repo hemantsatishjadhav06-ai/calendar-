@@ -1,0 +1,3 @@
+# Snapshot placeholder — generate the first real snapshot with:
+#   pnpm --filter @relay/api run schema:emit && cp apps/api/schema.graphql packages/graphql/schema.public.graphql
+type Query { _placeholder: Boolean }
