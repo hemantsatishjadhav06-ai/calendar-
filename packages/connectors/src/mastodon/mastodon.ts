@@ -1,6 +1,6 @@
-import { env } from '@relay/config';
-import { prismaAdmin } from '@relay/db';
-import { mastodonRules } from '@relay/network-rules';
+import { env } from '@cadence/config';
+import { prismaAdmin } from '@cadence/db';
+import { mastodonRules } from '@cadence/network-rules';
 import type { SocialConnector, MediaRef, InboxItem } from '../types.js';
 import { ConnectorError, http, readJson, pkce, newState, streamFromS3, sleep } from '../shared/index.js';
 
@@ -18,7 +18,7 @@ export function normalizeHost(input: string) {
 async function appFor(host: string) {
   const cached = await prismaAdmin.mastodonApp.findUnique({ where: { host } });
   if (cached) return cached;
-  const res = await http(`https://${host}/api/v1/apps`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ client_name: 'Relay', redirect_uris: [`${env.API_URL}/oauth/MASTODON/callback`], scopes: SCOPES, website: env.APP_URL }) });
+  const res = await http(`https://${host}/api/v1/apps`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ client_name: 'Cadence', redirect_uris: [`${env.API_URL}/oauth/MASTODON/callback`], scopes: SCOPES, website: env.APP_URL }) });
   const j: any = await readJson(res);
   if (!j.client_id) throw new ConnectorError('PLATFORM', `Could not register app on ${host}`, { retryable: true, raw: j });
   return prismaAdmin.mastodonApp.create({ data: { host, clientId: j.client_id, clientSecret: j.client_secret } });

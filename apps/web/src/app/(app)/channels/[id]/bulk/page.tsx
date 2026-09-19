@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { DateTime } from 'luxon';
-import { rulesFor, validateTarget } from '@relay/network-rules';
+import { rulesFor, validateTarget } from '@cadence/network-rules';
 import { TopBar } from '@/components/shell/TopBar';
 import { useChannel } from '@/lib/hooks';
 import { gqlRequest } from '@/lib/api';

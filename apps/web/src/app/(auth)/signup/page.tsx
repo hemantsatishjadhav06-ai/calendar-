@@ -17,8 +17,10 @@ export default function SignupPage() {
   return (
     <main className="auth-page" id="main">
       <form className="auth-card" onSubmit={submit} aria-labelledby="signup-title">
-        <div className="row" style={{ marginBottom: 20 }}><span className="sidebar-logo">R</span><h1 id="signup-title" style={{ margin: 0, fontSize: 22 }}>Create your account</h1></div>
+        <div className="row" style={{ marginBottom: 20 }}><span className="sidebar-logo">C</span><h1 id="signup-title" style={{ margin: 0, fontSize: 22 }}>Create your account</h1></div>
         {error && <div className="banner danger" role="alert">{error}</div>}
+        <a className="btn secondary" href="/api/auth/oauth/google/start" style={{ width: '100%', justifyContent: 'center' }}><span aria-hidden style={{ fontWeight: 700 }}>G</span> Continue with Google</a>
+        <div className="row" style={{ margin: '14px 0', gap: 10, color: 'var(--fg-subtle)', fontSize: 12 }}><span style={{ flex: 1, height: 1, background: 'var(--border)' }} />or<span style={{ flex: 1, height: 1, background: 'var(--border)' }} /></div>
         <div className="field"><label htmlFor="name">Your name</label><input id="name" className="input" autoComplete="name" value={form.name} onChange={set('name')} /></div>
         <div className="field"><label htmlFor="email">Work email</label><input id="email" className="input" type="email" autoComplete="email" required value={form.email} onChange={set('email')} /></div>
         <div className="field"><label htmlFor="password">Password</label><input id="password" className="input" type="password" autoComplete="new-password" required minLength={10} value={form.password} onChange={set('password')} /><span className="hint">At least 10 characters.</span></div>

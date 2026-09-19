@@ -1,0 +1,178 @@
+<?php
+
+use App\Models\ApiKey;
+use App\Models\User;
+use App\Models\Workspace;
+use App\Services\Api\ApiKeyManager;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\File;
+use Laravel\Passport\Client;
+use Laravel\Passport\Passport;
+use Laravel\Passport\Token;
+
+beforeEach(function () {
+    if (! file_exists(storage_path('oauth-private.key'))) {
+        Artisan::call('passport:keys', ['--no-interaction' => true]);
+    }
+
+    Client::factory()->asPersonalAccessTokenClient()->create(['provider' => 'users']);
+
+    $this->manager = app(ApiKeyManager::class);
+    $this->workspace = Workspace::factory()->create();
+    $this->user = User::factory()->create();
+});
+
+test('issue returns a plaintext token and persists the key row', function () {
+    [$apiKey, $plain] = $this->manager->issue($this->workspace, $this->user, 'CI bot', 'write', null);
+
+    expect($plain)->toBeString()->not->toBeEmpty();
+    expect($apiKey)->toBeInstanceOf(ApiKey::class);
+    expect($apiKey->workspace_id)->toBe($this->workspace->id);
+    expect($apiKey->user_id)->toBe($this->user->id);
+    expect($apiKey->scope)->toBe('write');
+    expect($apiKey->expires_at)->toBeNull();
+    expect(Token::find($apiKey->access_token_id))->not->toBeNull();
+});
+
+test('issue provisions a personal access client when none exists', function () {
+    Client::query()->delete();
+
+    [$apiKey, $plain] = $this->manager->issue($this->workspace, $this->user, 'first key', 'read', null);
+
+    expect($plain)->toBeString()->not->toBeEmpty();
+    expect(Token::find($apiKey->access_token_id))->not->toBeNull();
+    expect(
+        Client::query()->get()->contains(fn (Client $client): bool => $client->hasGrantType('personal_access'))
+    )->toBeTrue();
+});
+
+test('issue reuses an existing personal access client instead of creating another', function () {
+    $before = Client::query()->count();
+
+    $this->manager->issue($this->workspace, $this->user, 'one', 'read', null);
+    $this->manager->issue($this->workspace, $this->user, 'two', 'read', null);
+
+    expect(Client::query()->count())->toBe($before);
+});
+
+test('a read key is granted only the read scope', function () {
+    [$apiKey] = $this->manager->issue($this->workspace, $this->user, 'reader', 'read', null);
+
+    expect(Token::find($apiKey->access_token_id)->scopes)->toBe(['read']);
+});
+
+test('a write key is granted read and write scopes', function () {
+    [$apiKey] = $this->manager->issue($this->workspace, $this->user, 'writer', 'write', null);
+
+    expect(Token::find($apiKey->access_token_id)->scopes)->toBe(['read', 'write']);
+});
+
+test('a custom expiry is stored on the key', function () {
+    $expires = now()->addDays(7)->startOfSecond();
+
+    [$apiKey] = $this->manager->issue($this->workspace, $this->user, 'temp', 'read', $expires);
+
+    expect($apiKey->expires_at->equalTo($expires))->toBeTrue();
+});
+
+test('last_four matches the last 4 characters of the plaintext token', function () {
+    [$apiKey, $plain] = $this->manager->issue($this->workspace, $this->user, 'CI bot', 'write', null);
+
+    expect($apiKey->last_four)->toBe(substr($plain, -4));
+});
+
+test('a key issued with a custom expiry produces a Passport token expiring at that instant', function () {
+    $expires = now()->addDays(7)->startOfSecond();
+
+    [$apiKey] = $this->manager->issue($this->workspace, $this->user, 'temp', 'read', $expires);
+
+    $token = Token::find($apiKey->access_token_id);
+
+    expect($token->expires_at->diffInMinutes($expires, absolute: true))->toBeLessThanOrEqual(1);
+    expect($apiKey->expires_at->diffInMinutes($expires, absolute: true))->toBeLessThanOrEqual(1);
+});
+
+test('a non-expiring key produces a Passport token expiring far in the future', function () {
+    [$apiKey] = $this->manager->issue($this->workspace, $this->user, 'forever', 'write', null);
+
+    $token = Token::find($apiKey->access_token_id);
+
+    expect($token->expires_at->diffInDays(now(), absolute: true))->toBeGreaterThanOrEqual(99 * 365);
+    expect($apiKey->expires_at)->toBeNull();
+});
+
+test('issue generates the encryption keypair when none exists and auto-generation is enabled', function () {
+    $emptyDir = storage_path('framework/testing/passport-keys-'.uniqid());
+    File::ensureDirectoryExists($emptyDir);
+    Passport::loadKeysFrom($emptyDir);
+    config(['passport.auto_generate_keys' => true, 'passport.private_key' => null, 'passport.public_key' => null]);
+
+    try {
+        [$apiKey] = $this->manager->issue($this->workspace, $this->user, 'bootstrap', 'read', null);
+
+        expect(file_exists($emptyDir.'/oauth-private.key'))->toBeTrue();
+        expect(Token::find($apiKey->access_token_id))->not->toBeNull();
+    } finally {
+        Passport::loadKeysFrom(storage_path());
+        File::deleteDirectory($emptyDir);
+    }
+});
+
+test('issue generates keys without invoking the passport console command (octane-safe)', function () {
+    // Passport only registers `passport:keys` when runningInConsole(), so under Octane the
+    // web worker must generate the keypair in-process, never via Artisan::call(). See #167.
+    $emptyDir = storage_path('framework/testing/passport-keys-'.uniqid());
+    File::ensureDirectoryExists($emptyDir);
+    Passport::loadKeysFrom($emptyDir);
+    config(['passport.auto_generate_keys' => true, 'passport.private_key' => null, 'passport.public_key' => null]);
+    $this->workspace->members()->create(['user_id' => $this->user->id, 'role' => 'admin']);
+
+    try {
+        Artisan::spy();
+
+        [$apiKey, $plain] = $this->manager->issue($this->workspace, $this->user, 'octane', 'read', null);
+
+        Artisan::shouldNotHaveReceived('call');
+        expect(file_exists($emptyDir.'/oauth-private.key'))->toBeTrue();
+        expect(file_exists($emptyDir.'/oauth-public.key'))->toBeTrue();
+        expect(Token::find($apiKey->access_token_id))->not->toBeNull();
+
+        // The generated public key must verify a JWT signed by the generated private key:
+        // authenticate the freshly issued token through the real resource-server guard.
+        $this->withToken($plain)->getJson('/api/v1/connected-accounts')->assertOk();
+    } finally {
+        Passport::loadKeysFrom(storage_path());
+        File::deleteDirectory($emptyDir);
+    }
+});
+
+test('issue does not generate keys and fails loudly when auto-generation is disabled', function () {
+    $emptyDir = storage_path('framework/testing/passport-keys-'.uniqid());
+    File::ensureDirectoryExists($emptyDir);
+    Passport::loadKeysFrom($emptyDir);
+    config(['passport.auto_generate_keys' => false, 'passport.private_key' => null, 'passport.public_key' => null]);
+
+    try {
+        $threw = false;
+        try {
+            $this->manager->issue($this->workspace, $this->user, 'no keys', 'read', null);
+        } catch (Throwable) {
+            $threw = true;
+        }
+
+        expect($threw)->toBeTrue();
+        expect(file_exists($emptyDir.'/oauth-private.key'))->toBeFalse();
+    } finally {
+        Passport::loadKeysFrom(storage_path());
+        File::deleteDirectory($emptyDir);
+    }
+});
+
+test('revoke marks the row revoked and revokes the passport token', function () {
+    [$apiKey] = $this->manager->issue($this->workspace, $this->user, 'bot', 'write', null);
+
+    $this->manager->revoke($apiKey);
+
+    expect($apiKey->fresh()->revoked_at)->not->toBeNull();
+    expect(Token::find($apiKey->access_token_id)->revoked)->toBeTrue();
+});

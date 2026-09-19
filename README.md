@@ -1,4 +1,4 @@
-# Relay — a Buffer-equivalent social media platform
+# Cadence — a Buffer-equivalent social media platform
 
 Publish · Create · Community · Insights · Start Page · AI Assistant · Teams · Billing · Public GraphQL API · MCP server.
 Multi-tenant (one organization per client company; designed for 30+ running simultaneously). TypeScript end to end.
@@ -38,7 +38,7 @@ cp .env.example .env                 # fill in at least SESSION_SECRET (32+ char
 pnpm install
 pnpm infra:up                        # Postgres+Timescale, Redis, MinIO (S3), Mailpit
 pnpm db:generate && pnpm db:migrate  # Prisma migrations
-pnpm --filter @relay/db exec node --import tsx scripts/apply-sql.ts   # RLS policies, hypertables, vault table
+pnpm --filter @cadence/db exec node --import tsx scripts/apply-sql.ts   # RLS policies, hypertables, vault table
 pnpm db:seed                         # org "acme", login owner@relay.local / password
 pnpm dev                             # web :3000 · api :4000 · worker · startpage :4100 · mcp :4200
 ```
@@ -74,10 +74,10 @@ Feature flags in `packages/config` keep TikTok/YouTube/GBP hidden until approval
 
 ```bash
 pnpm typecheck | pnpm lint | pnpm test          # all packages
-pnpm --filter @relay/web exec playwright test   # E2E + axe (needs dev stack)
-pnpm --filter @relay/api run schema:emit        # regenerate apps/api/schema.graphql
-pnpm --filter @relay/graphql run schema:check   # fail on breaking public-API change
-WORKER_ROLE=media pnpm --filter @relay/worker dev   # run one worker role
+pnpm --filter @cadence/web exec playwright test   # E2E + axe (needs dev stack)
+pnpm --filter @cadence/api run schema:emit        # regenerate apps/api/schema.graphql
+pnpm --filter @cadence/graphql run schema:check   # fail on breaking public-API change
+WORKER_ROLE=media pnpm --filter @cadence/worker dev   # run one worker role
 ```
 
 ## Deploy

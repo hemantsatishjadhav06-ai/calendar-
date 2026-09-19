@@ -1,7 +1,7 @@
 import twitter from 'twitter-text';
-import { env } from '@relay/config';
-import { prismaAdmin } from '@relay/db';
-import { xRules } from '@relay/network-rules';
+import { env } from '@cadence/config';
+import { prismaAdmin } from '@cadence/db';
+import { xRules } from '@cadence/network-rules';
 import type { SocialConnector, MediaRef, InboxItem } from '../types.js';
 import { ConnectorError, http, readJson, pkce, newState, assertConfigured, streamFromS3, chunkStream, sleep, chunks, hmacB64, safeEqual } from '../shared/index.js';
 

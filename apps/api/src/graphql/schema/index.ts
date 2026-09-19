@@ -4,6 +4,7 @@ import './organization.js';
 import './channels.js';
 import './posts.js';
 import './queue.js';
+import './calendar.js';
 import './ideas.js';
 import './tags.js';
 import './community.js';

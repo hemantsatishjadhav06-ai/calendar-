@@ -1,10 +1,11 @@
 import { builder } from '../builder.js';
-import { CommentKindEnum } from './enums.js';
-import { prismaAdmin } from '@relay/db';
-import { assertCan, can, DomainError } from '@relay/domain';
-import { getConnector } from '@relay/connectors';
-import { tokenVault } from '@relay/token-vault';
+import { CommentKindEnum, AccountSummary } from './enums.js';
+import { prismaAdmin } from '@cadence/db';
+import { assertCan, can, DomainError } from '@cadence/domain';
+import { getConnector } from '@cadence/connectors';
+import { tokenVault } from '@cadence/token-vault';
 import { events } from '../../events/events.bus.js';
+import { pushNotification } from '../../notifications/notify.js';
 import { QueuesService } from '../../infra/queues.service.js';
 
 const queues = new QueuesService();
@@ -17,12 +18,16 @@ builder.prismaObject('Comment', {
     text: t.exposeString('text'), attachments: t.expose('attachments', { type: 'JSON' }), externalCreatedAt: t.expose('externalCreatedAt', { type: 'DateTime' }), likeCount: t.exposeInt('likeCount'),
     isHidden: t.exposeBoolean('isHidden'), isOurs: t.exposeBoolean('isOurs'), repliedAt: t.expose('repliedAt', { type: 'DateTime', nullable: true }), resolvedAt: t.expose('resolvedAt', { type: 'DateTime', nullable: true }),
     labels: t.exposeStringList('labels'), sentiment: t.exposeFloat('sentiment', { nullable: true }), triage: t.exposeString('triage', { nullable: true }),
+    assignedToAccountId: t.exposeID('assignedToAccountId', { nullable: true }),
+    assignee: t.field({ type: AccountSummary, nullable: true, resolve: c => c.assignedToAccountId ? prismaAdmin.account.findUnique({ where: { id: c.assignedToAccountId }, select: { id: true, email: true, name: true, avatarUrl: true } }) : null }),
+    // Minutes an inbound comment has waited without a reply (null once replied/resolved/ours) — drives the SLA badge.
+    waitingMinutes: t.int({ nullable: true, resolve: c => (c.isOurs || c.repliedAt || c.resolvedAt) ? null : Math.max(0, Math.floor((Date.now() - new Date(c.externalCreatedAt).getTime()) / 60000)) }),
     replies: t.prismaField({ type: ['Comment'], resolve: (query, c, _a, ctx) => ctx.db!.comment.findMany({ ...query, where: { channelId: c.channelId, parentExternalId: c.externalId }, orderBy: { externalCreatedAt: 'asc' } }) }),
     capabilities: t.field({ type: 'JSON', resolve: async c => { const ch = await prismaAdmin.channel.findUnique({ where: { id: c.channelId } }); const f = ch ? getConnector(ch.network).rules.features : {}; return { reply: !!(f as any).reply, like: !!(f as any).like, hide: !!(f as any).hide, delete: !!(f as any).deleteComment }; } }),
   }),
 });
 
-const CommentFilter = builder.inputType('CommentFilter', { fields: t => ({ channelIds: t.idList(), groupId: t.id(), unansweredOnly: t.boolean(), includeResolved: t.boolean(), kinds: t.field({ type: [CommentKindEnum] }), labels: t.stringList(), search: t.string(), postExternalId: t.string() }) });
+const CommentFilter = builder.inputType('CommentFilter', { fields: t => ({ channelIds: t.idList(), groupId: t.id(), unansweredOnly: t.boolean(), includeResolved: t.boolean(), kinds: t.field({ type: [CommentKindEnum] }), labels: t.stringList(), search: t.string(), postExternalId: t.string(), assignedToAccountId: t.id(), unassignedOnly: t.boolean(), triage: t.string() }) });
 const PostGroup = builder.objectRef<{ externalPostId: string; channelId: string; count: number; unanswered: number; latestAt: Date }>('CommentPostGroup').implement({ fields: t => ({ externalPostId: t.exposeString('externalPostId'), channelId: t.exposeID('channelId'), count: t.exposeInt('count'), unanswered: t.exposeInt('unanswered'), latestAt: t.expose('latestAt', { type: 'DateTime' }), postTarget: t.prismaField({ type: 'PostTarget', nullable: true, resolve: (q, g, _a, ctx) => ctx.db!.postTarget.findFirst({ ...q, where: { channelId: g.channelId, externalPostId: g.externalPostId } }) }) }) });
 
 function visibleChannels(ctx: any, requested?: string[]) {
@@ -42,6 +47,9 @@ async function where(ctx: any, f: any) {
     ...(f?.labels?.length ? { labels: { hasSome: f.labels } } : {}),
     ...(f?.search ? { text: { contains: f.search, mode: 'insensitive' as const } } : {}),
     ...(f?.postExternalId ? { externalPostId: f.postExternalId } : {}),
+    ...(f?.assignedToAccountId ? { assignedToAccountId: String(f.assignedToAccountId) } : {}),
+    ...(f?.unassignedOnly ? { assignedToAccountId: null } : {}),
+    ...(f?.triage ? { triage: f.triage } : {}),
   };
 }
 
@@ -88,4 +96,24 @@ builder.mutationFields(t => ({
     return r.count;
   } }),
   syncInbox: t.boolean({ authScopes: { user: true }, args: { channelId: t.arg.id() }, resolve: async (_r, a, ctx) => { const chans = await ctx.db!.channel.findMany({ where: { organizationId: ctx.tenant!.organizationId, deletedAt: null, ...(a.channelId ? { id: String(a.channelId) } : {}) } }); for (const ch of chans) await queues.get('inbox').add('poll', { channelId: ch.id, organizationId: ch.organizationId }, { jobId: `inbox-manual-${ch.id}-${Math.floor(Date.now() / 60000)}` }); return true; } }),
+
+  /** Assign (or clear, when accountId is null) an inbox item to a teammate and notify them. */
+  assignComment: t.prismaField({ type: 'Comment', authScopes: { user: true }, args: { id: t.arg.id({ required: true }), accountId: t.arg.id() }, resolve: async (q, _r, a, ctx) => {
+    const c = await load(ctx, String(a.id), 'community.reply');
+    const assignee = a.accountId ? String(a.accountId) : null;
+    if (assignee) { const m = await prismaAdmin.membership.findFirst({ where: { organizationId: ctx.tenant!.organizationId, accountId: assignee, status: 'ACTIVE' } }); if (!m) throw new DomainError('VALIDATION', 'That teammate is not a member of this workspace'); }
+    const updated = await ctx.db!.comment.update({ ...q, where: { id: c.id }, data: { assignedToAccountId: assignee } });
+    if (assignee && assignee !== ctx.account!.id) await pushNotification({ organizationId: ctx.tenant!.organizationId, accountId: assignee, type: 'inbox.assigned', title: 'A conversation was assigned to you', body: `${ctx.account!.name ?? ctx.account!.email}: "${c.text.slice(0, 80)}"`, url: `/community` });
+    events.publish(ctx.tenant!.organizationId, { type: 'comment.updated', commentId: c.id });
+    return updated;
+  } }),
+  /** Set the manual triage/sentiment label on an inbox item (null clears it). */
+  setCommentTriage: t.prismaField({ type: 'Comment', authScopes: { user: true }, args: { id: t.arg.id({ required: true }), triage: t.arg.string() }, resolve: async (q, _r, a, ctx) => {
+    const c = await load(ctx, String(a.id), 'community.reply');
+    const allowed = ['positive', 'neutral', 'negative', 'needs_review'];
+    const triage = a.triage && allowed.includes(a.triage) ? a.triage : null;
+    const updated = await ctx.db!.comment.update({ ...q, where: { id: c.id }, data: { triage } });
+    events.publish(ctx.tenant!.organizationId, { type: 'comment.updated', commentId: c.id });
+    return updated;
+  } }),
 }));

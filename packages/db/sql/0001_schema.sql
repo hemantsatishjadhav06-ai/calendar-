@@ -3,13 +3,14 @@
 DO $$ BEGIN CREATE TYPE "OrgRole" AS ENUM ('OWNER', 'ADMIN', 'MEMBER'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TYPE "PublishAccess" AS ENUM ('FULL', 'APPROVAL', 'NONE'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TYPE "CommunityAccess" AS ENUM ('FULL', 'VIEW', 'NONE'); EXCEPTION WHEN duplicate_object THEN null; END $$;
-DO $$ BEGIN CREATE TYPE "Network" AS ENUM ('FACEBOOK', 'INSTAGRAM', 'THREADS', 'X', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'PINTEREST', 'GOOGLE_BUSINESS', 'BLUESKY', 'MASTODON', 'START_PAGE'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE "Network" AS ENUM ('FACEBOOK', 'INSTAGRAM', 'THREADS', 'X', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'PINTEREST', 'GOOGLE_BUSINESS', 'BLUESKY', 'MASTODON', 'DEVTO', 'DISCORD', 'START_PAGE'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TYPE "ChannelStatus" AS ENUM ('ACTIVE', 'RECONNECT_REQUIRED', 'LOCKED', 'DISCONNECTED'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TYPE "PostStatus" AS ENUM ('DRAFT', 'PENDING_APPROVAL', 'QUEUED', 'SCHEDULED', 'PUBLISHING', 'PUBLISHED', 'PARTIALLY_PUBLISHED', 'FAILED', 'NOTIFIED', 'CANCELLED'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TYPE "ScheduleMode" AS ENUM ('QUEUE', 'SHARE_NEXT', 'CUSTOM', 'NOW', 'DRAFT'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TYPE "SchedulingType" AS ENUM ('AUTOMATIC', 'NOTIFICATION'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TYPE "CommentKind" AS ENUM ('COMMENT', 'REPLY', 'MENTION', 'REVIEW', 'DM'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN CREATE TYPE "Plan" AS ENUM ('FREE', 'ESSENTIALS', 'TEAM'); EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN CREATE TYPE "AutoRepost" AS ENUM ('OFF', 'ALWAYS', 'SMART'); EXCEPTION WHEN duplicate_object THEN null; END $$;
 CREATE TABLE IF NOT EXISTS "Account" (
   "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
   "email" text NOT NULL,
@@ -48,6 +49,20 @@ CREATE TABLE IF NOT EXISTS "Session" (
   "createdAt" timestamp(3) NOT NULL DEFAULT now(),
   PRIMARY KEY ("id")
 );
+CREATE TABLE IF NOT EXISTS "Passkey" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
+  "accountId" uuid NOT NULL,
+  "credentialId" text NOT NULL,
+  "publicKey" bytea NOT NULL,
+  "counter" bigint NOT NULL DEFAULT 0,
+  "transports" text[] NOT NULL DEFAULT '{}',
+  "name" text,
+  "createdAt" timestamp(3) NOT NULL DEFAULT now(),
+  "lastUsedAt" timestamp(3),
+  PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "Passkey_credentialId_key" ON "Passkey" ("credentialId");
+CREATE INDEX IF NOT EXISTS "Passkey_accountId_idx" ON "Passkey" ("accountId");
 CREATE TABLE IF NOT EXISTS "Agency" (
   "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
   "name" text NOT NULL,
@@ -163,6 +178,8 @@ CREATE TABLE IF NOT EXISTS "Post" (
   "ideaId" uuid,
   "templateId" uuid,
   "aiAssisted" boolean NOT NULL DEFAULT false,
+  "autoRepost" "AutoRepost" NOT NULL DEFAULT 'OFF'::"AutoRepost",
+  "boostedAt" timestamp(3),
   "createdAt" timestamp(3) NOT NULL DEFAULT now(),
   "updatedAt" timestamp(3) NOT NULL DEFAULT now(),
   "deletedAt" timestamp(3),
@@ -215,6 +232,10 @@ CREATE TABLE IF NOT EXISTS "Approval" (
   "decidedAt" timestamp(3),
   "decision" text,
   "reason" text,
+  "clientDecision" text,
+  "clientDecidedAt" timestamp(3),
+  "clientReviewerName" text,
+  "clientComment" text,
   PRIMARY KEY ("postId")
 );
 CREATE TABLE IF NOT EXISTS "Note" (
@@ -511,6 +532,44 @@ CREATE TABLE IF NOT EXISTS "NotificationPref" (
   "enabled" boolean NOT NULL DEFAULT true,
   PRIMARY KEY ("accountId", "key")
 );
+CREATE TABLE IF NOT EXISTS "SavedMention" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
+  "organizationId" uuid NOT NULL,
+  "label" text NOT NULL,
+  "value" text NOT NULL,
+  "network" text,
+  "createdAt" timestamp(3) NOT NULL DEFAULT now(),
+  PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "SavedMention_organizationId_idx" ON "SavedMention" ("organizationId");
+CREATE TABLE IF NOT EXISTS "CalendarEvent" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
+  "organizationId" uuid NOT NULL,
+  "title" text NOT NULL,
+  "startDate" date NOT NULL,
+  "endDate" date NOT NULL,
+  "color" text NOT NULL DEFAULT '#F79009',
+  "note" text,
+  "createdByAccountId" uuid NOT NULL,
+  "createdAt" timestamp(3) NOT NULL DEFAULT now(),
+  PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "CalendarEvent_organizationId_startDate_idx" ON "CalendarEvent" ("organizationId", "startDate");
+CREATE TABLE IF NOT EXISTS "Notification" (
+  "id" uuid NOT NULL DEFAULT uuid_generate_v7(),
+  "organizationId" uuid NOT NULL,
+  "accountId" uuid NOT NULL,
+  "type" text NOT NULL,
+  "title" text NOT NULL,
+  "body" text,
+  "url" text,
+  "data" jsonb NOT NULL DEFAULT '{}',
+  "readAt" timestamp(3),
+  "createdAt" timestamp(3) NOT NULL DEFAULT now(),
+  PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "Notification_accountId_readAt_createdAt_idx" ON "Notification" ("accountId", "readAt", "createdAt");
+CREATE INDEX IF NOT EXISTS "Notification_organizationId_idx" ON "Notification" ("organizationId");
 CREATE TABLE IF NOT EXISTS "AuditLog" (
   "id" bigserial NOT NULL,
   "organizationId" uuid NOT NULL,

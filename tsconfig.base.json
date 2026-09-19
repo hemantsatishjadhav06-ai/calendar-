@@ -18,17 +18,17 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
-      "@relay/config": ["packages/config/src/index.ts"],
-      "@relay/db": ["packages/db/src/index.ts"],
-      "@relay/domain": ["packages/domain/src/index.ts"],
-      "@relay/entitlements": ["packages/entitlements/src/index.ts"],
-      "@relay/network-rules": ["packages/network-rules/src/index.ts"],
-      "@relay/connectors": ["packages/connectors/src/index.ts"],
-      "@relay/connectors/*": ["packages/connectors/src/*"],
-      "@relay/token-vault": ["packages/token-vault/src/index.ts"],
-      "@relay/token-vault/*": ["packages/token-vault/src/*"],
-      "@relay/ai": ["packages/ai/src/index.ts"],
-      "@relay/mail": ["packages/mail/src/index.ts"]
+      "@cadence/config": ["packages/config/src/index.ts"],
+      "@cadence/db": ["packages/db/src/index.ts"],
+      "@cadence/domain": ["packages/domain/src/index.ts"],
+      "@cadence/entitlements": ["packages/entitlements/src/index.ts"],
+      "@cadence/network-rules": ["packages/network-rules/src/index.ts"],
+      "@cadence/connectors": ["packages/connectors/src/index.ts"],
+      "@cadence/connectors/*": ["packages/connectors/src/*"],
+      "@cadence/token-vault": ["packages/token-vault/src/index.ts"],
+      "@cadence/token-vault/*": ["packages/token-vault/src/*"],
+      "@cadence/ai": ["packages/ai/src/index.ts"],
+      "@cadence/mail": ["packages/mail/src/index.ts"]
     }
   }
 }

@@ -1,5 +1,5 @@
 {
-  "name": "@relay/entitlements",
+  "name": "@cadence/entitlements",
   "version": "0.1.0",
   "private": true,
   "type": "module",

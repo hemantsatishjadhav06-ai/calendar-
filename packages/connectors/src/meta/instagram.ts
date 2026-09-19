@@ -1,6 +1,6 @@
-import { env } from '@relay/config';
-import { instagramRules } from '@relay/network-rules';
-import type { Channel } from '@relay/db';
+import { env } from '@cadence/config';
+import { instagramRules } from '@cadence/network-rules';
+import type { Channel } from '@cadence/db';
 import type { SocialConnector, Creds, MediaRef, InboxItem } from '../types.js';
 import { graph, FB, IG, verifyMetaWebhook, waitFor } from './graph.js';
 import { ConnectorError, http, readJson, mediaUrl, newState, assertConfigured, unix, log } from '../shared/index.js';

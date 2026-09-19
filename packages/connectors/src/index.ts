@@ -1,5 +1,5 @@
-import type { Network } from '@relay/db';
-import { env } from '@relay/config';
+import type { Network } from '@cadence/db';
+import { env } from '@cadence/config';
 import type { SocialConnector } from './types.js';
 import { facebook } from './meta/facebook.js';
 import { instagram } from './meta/instagram.js';
@@ -12,6 +12,8 @@ import { gbp } from './google/gbp.js';
 import { pinterest } from './pinterest/pinterest.js';
 import { bluesky } from './bluesky/bluesky.js';
 import { mastodon } from './mastodon/mastodon.js';
+import { devto } from './devto/devto.js';
+import { discord } from './discord/discord.js';
 import { startPage } from './startpage/startpage.js';
 
 export * from './types.js';
@@ -22,7 +24,7 @@ export { normalizeHost as normalizeMastodonHost } from './mastodon/mastodon.js';
 
 const registry: Record<Network, SocialConnector> = {
   FACEBOOK: facebook, INSTAGRAM: instagram, THREADS: threads, X: x, LINKEDIN: linkedin, TIKTOK: tiktok, YOUTUBE: youtube,
-  PINTEREST: pinterest, GOOGLE_BUSINESS: gbp, BLUESKY: bluesky, MASTODON: mastodon, START_PAGE: startPage,
+  PINTEREST: pinterest, GOOGLE_BUSINESS: gbp, BLUESKY: bluesky, MASTODON: mastodon, DEVTO: devto, DISCORD: discord, START_PAGE: startPage,
 };
 
 export function getConnector(network: Network): SocialConnector {
@@ -50,6 +52,8 @@ const CREDENTIALS: Record<Network, () => boolean> = {
   PINTEREST: () => !!(env.PIN_APP_ID && env.PIN_APP_SECRET),
   BLUESKY: () => true,
   MASTODON: () => true,
+  DEVTO: () => true,      // no product app: each user connects with their own DEV.to API key
+  DISCORD: () => true,    // no product app: each user connects by pasting a channel webhook URL
   START_PAGE: () => true,
 };
 export function networkConfigured(network: Network): boolean {
@@ -57,7 +61,7 @@ export function networkConfigured(network: Network): boolean {
 }
 
 /** Networks the connect screen offers, with display metadata. */
-export const NETWORK_CATALOG: { network: Network; label: string; needsHint?: 'server' | 'handle'; note?: string }[] = [
+export const NETWORK_CATALOG: { network: Network; label: string; needsHint?: 'server' | 'handle' | 'apikey' | 'webhook'; note?: string }[] = [
   { network: 'FACEBOOK', label: 'Facebook Page', note: 'Pages you manage; Groups via notifications' },
   { network: 'INSTAGRAM', label: 'Instagram', note: 'Business or Creator account' },
   { network: 'THREADS', label: 'Threads' },
@@ -69,4 +73,6 @@ export const NETWORK_CATALOG: { network: Network; label: string; needsHint?: 'se
   { network: 'GOOGLE_BUSINESS', label: 'Google Business Profile' },
   { network: 'BLUESKY', label: 'Bluesky', needsHint: 'handle' },
   { network: 'MASTODON', label: 'Mastodon', needsHint: 'server' },
+  { network: 'DEVTO', label: 'DEV.to', needsHint: 'apikey', note: 'Publish articles with your DEV.to API key' },
+  { network: 'DISCORD', label: 'Discord', needsHint: 'webhook', note: 'Post to a channel with an Incoming Webhook URL' },
 ];

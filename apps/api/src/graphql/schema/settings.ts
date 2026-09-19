@@ -1,6 +1,6 @@
 import { builder } from '../builder.js';
-import { prismaAdmin } from '@relay/db';
-import { entitlement, DomainError } from '@relay/domain';
+import { prismaAdmin } from '@cadence/db';
+import { entitlement, DomainError } from '@cadence/domain';
 import { AuthService } from '../../auth/auth.service.js';
 
 const auth = new AuthService();
@@ -8,6 +8,7 @@ const auth = new AuthService();
 builder.prismaObject('ApiKey', { fields: t => ({ id: t.exposeID('id'), name: t.exposeString('name'), prefix: t.exposeString('prefix'), scopes: t.exposeStringList('scopes'), lastUsedAt: t.expose('lastUsedAt', { type: 'DateTime', nullable: true }), createdAt: t.expose('createdAt', { type: 'DateTime' }), revokedAt: t.expose('revokedAt', { type: 'DateTime', nullable: true }) }) });
 builder.prismaObject('SavedView', { fields: t => ({ id: t.exposeID('id'), area: t.exposeString('area'), name: t.exposeString('name'), filters: t.expose('filters', { type: 'JSON' }), sortOrder: t.exposeInt('sortOrder') }) });
 builder.prismaObject('AuditLog', { fields: t => ({ id: t.field({ type: 'ID', resolve: a => String(a.id) }), action: t.exposeString('action'), entity: t.exposeString('entity'), entityId: t.exposeString('entityId', { nullable: true }), actorAccountId: t.exposeID('actorAccountId', { nullable: true }), diff: t.expose('diff', { type: 'JSON', nullable: true }), createdAt: t.expose('createdAt', { type: 'DateTime' }) }) });
+builder.prismaObject('Notification', { fields: t => ({ id: t.exposeID('id'), type: t.exposeString('type'), title: t.exposeString('title'), body: t.exposeString('body', { nullable: true }), url: t.exposeString('url', { nullable: true }), data: t.expose('data', { type: 'JSON' }), readAt: t.expose('readAt', { type: 'DateTime', nullable: true }), createdAt: t.expose('createdAt', { type: 'DateTime' }) }) });
 
 const PrefsInput = builder.inputType('PreferencesInput', { fields: t => ({ name: t.string(), timezone: t.string(), weekStartsOn: t.int(), appearance: t.string(), landingPage: t.string(), defaultScheduleAction: t.string(), avatarUrl: t.string() }) });
 const NewApiKey = builder.objectRef<{ key: string; id: string }>('NewApiKey').implement({ fields: t => ({ key: t.exposeString('key'), id: t.exposeID('id') }) });
@@ -17,6 +18,8 @@ builder.queryFields(t => ({
   savedViews: t.prismaField({ type: ['SavedView'], authScopes: { user: true }, args: { area: t.arg.string() }, resolve: (q, _r, a, ctx) => ctx.db!.savedView.findMany({ ...q, where: { organizationId: ctx.tenant!.organizationId, accountId: ctx.account!.id, ...(a.area ? { area: a.area } : {}) }, orderBy: { sortOrder: 'asc' } }) }),
   notificationPrefs: t.field({ type: 'JSON', authScopes: { user: true }, resolve: async (_r, _a, ctx) => Object.fromEntries((await prismaAdmin.notificationPref.findMany({ where: { accountId: ctx.account!.id } })).map(p => [p.key, p.enabled])) }),
   auditLog: t.prismaField({ type: ['AuditLog'], authScopes: { admin: true }, args: { take: t.arg.int({ defaultValue: 100 }), before: t.arg({ type: 'DateTime' }) }, resolve: (q, _r, a, ctx) => ctx.db!.auditLog.findMany({ ...q, where: { organizationId: ctx.tenant!.organizationId, ...(a.before ? { createdAt: { lt: a.before } } : {}) }, orderBy: { createdAt: 'desc' }, take: Math.min(500, a.take ?? 100) }) }),
+  notifications: t.prismaField({ type: ['Notification'], authScopes: { user: true }, args: { take: t.arg.int({ defaultValue: 20 }), unreadOnly: t.arg.boolean() }, resolve: (q, _r, a, ctx) => ctx.db!.notification.findMany({ ...q, where: { organizationId: ctx.tenant!.organizationId, accountId: ctx.account!.id, ...(a.unreadOnly ? { readAt: null } : {}) }, orderBy: { createdAt: 'desc' }, take: Math.min(100, a.take ?? 20) }) }),
+  notificationUnreadCount: t.int({ authScopes: { user: true }, resolve: (_r, _a, ctx) => ctx.db!.notification.count({ where: { organizationId: ctx.tenant!.organizationId, accountId: ctx.account!.id, readAt: null } }) }),
 }));
 
 builder.mutationFields(t => ({
@@ -39,4 +42,6 @@ builder.mutationFields(t => ({
   revokeApiKey: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }) }, resolve: async (_r, a, ctx) => { await ctx.db!.apiKey.updateMany({ where: { id: String(a.id), accountId: ctx.account!.id }, data: { revokedAt: new Date() } }); return true; } }),
   saveView: t.prismaField({ type: 'SavedView', authScopes: { user: true }, args: { id: t.arg.id(), area: t.arg.string({ required: true }), name: t.arg.string({ required: true }), filters: t.arg({ type: 'JSON', required: true }) }, resolve: (q, _r, a, ctx) => a.id ? ctx.db!.savedView.update({ ...q, where: { id: String(a.id) }, data: { name: a.name, filters: a.filters as any } }) : ctx.db!.savedView.create({ ...q, data: { organizationId: ctx.tenant!.organizationId, accountId: ctx.account!.id, area: a.area, name: a.name.slice(0, 60), filters: a.filters as any } }) }),
   deleteView: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }) }, resolve: async (_r, a, ctx) => { await ctx.db!.savedView.deleteMany({ where: { id: String(a.id), accountId: ctx.account!.id } }); return true; } }),
+  markNotificationRead: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }) }, resolve: async (_r, a, ctx) => { await ctx.db!.notification.updateMany({ where: { id: String(a.id), accountId: ctx.account!.id, readAt: null }, data: { readAt: new Date() } }); return true; } }),
+  markAllNotificationsRead: t.boolean({ authScopes: { user: true }, resolve: async (_r, _a, ctx) => { await ctx.db!.notification.updateMany({ where: { organizationId: ctx.tenant!.organizationId, accountId: ctx.account!.id, readAt: null }, data: { readAt: new Date() } }); return true; } }),
 }));

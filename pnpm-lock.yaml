@@ -8,12 +8,18 @@ importers:
 
   .:
     devDependencies:
+      '@eslint/js':
+        specifier: ^9
+        version: 9.39.5
       '@types/node':
         specifier: ^22.7.0
         version: 22.20.3
       eslint:
         specifier: ^9.12.0
         version: 9.39.5(jiti@2.7.0)
+      eslint-plugin-jsx-a11y:
+        specifier: ^6
+        version: 6.10.2(eslint@9.39.5(jiti@2.7.0))
       prettier:
         specifier: ^3.3.3
         version: 3.9.7
@@ -23,6 +29,9 @@ importers:
       typescript:
         specifier: ^5.6.3
         version: 5.9.3
+      typescript-eslint:
+        specifier: ^8
+        version: 8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
       vitest:
         specifier: ^2.1.3
         version: 2.1.9(@types/node@22.20.3)
@@ -35,6 +44,33 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.650.0
         version: 3.1133.0
+      '@cadence/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
+      '@cadence/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@cadence/connectors':
+        specifier: workspace:*
+        version: link:../../packages/connectors
+      '@cadence/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@cadence/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@cadence/entitlements':
+        specifier: workspace:*
+        version: link:../../packages/entitlements
+      '@cadence/mail':
+        specifier: workspace:*
+        version: link:../../packages/mail
+      '@cadence/network-rules':
+        specifier: workspace:*
+        version: link:../../packages/network-rules
+      '@cadence/token-vault':
+        specifier: workspace:*
+        version: link:../../packages/token-vault
       '@nestjs/common':
         specifier: ^11.0.0
         version: 11.2.5(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -62,33 +98,9 @@ importers:
       '@pothos/plugin-scope-auth':
         specifier: ^4.1.0
         version: 4.2.1(@pothos/core@4.15.1(graphql@16.14.2))(graphql@16.14.2)
-      '@relay/ai':
-        specifier: workspace:*
-        version: link:../../packages/ai
-      '@relay/config':
-        specifier: workspace:*
-        version: link:../../packages/config
-      '@relay/connectors':
-        specifier: workspace:*
-        version: link:../../packages/connectors
-      '@relay/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@relay/domain':
-        specifier: workspace:*
-        version: link:../../packages/domain
-      '@relay/entitlements':
-        specifier: workspace:*
-        version: link:../../packages/entitlements
-      '@relay/mail':
-        specifier: workspace:*
-        version: link:../../packages/mail
-      '@relay/network-rules':
-        specifier: workspace:*
-        version: link:../../packages/network-rules
-      '@relay/token-vault':
-        specifier: workspace:*
-        version: link:../../packages/token-vault
+      '@simplewebauthn/server':
+        specifier: '11'
+        version: 11.0.0
       argon2:
         specifier: ^0.41.1
         version: 0.41.1
@@ -165,15 +177,15 @@ importers:
 
   apps/mcp:
     dependencies:
+      '@cadence/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@cadence/network-rules':
+        specifier: workspace:*
+        version: link:../../packages/network-rules
       '@modelcontextprotocol/sdk':
         specifier: ^1.4.0
         version: 1.30.0(zod@3.25.76)
-      '@relay/config':
-        specifier: workspace:*
-        version: link:../../packages/config
-      '@relay/network-rules':
-        specifier: workspace:*
-        version: link:../../packages/network-rules
       express:
         specifier: ^4.21.0
         version: 4.22.3
@@ -193,15 +205,15 @@ importers:
 
   apps/startpage:
     dependencies:
+      '@cadence/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@cadence/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@hono/node-server':
         specifier: ^1.13.1
         version: 1.19.17(hono@4.13.8)
-      '@relay/config':
-        specifier: workspace:*
-        version: link:../../packages/config
-      '@relay/db':
-        specifier: workspace:*
-        version: link:../../packages/db
       hono:
         specifier: ^4.6.3
         version: 4.13.8
@@ -218,6 +230,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@cadence/network-rules':
+        specifier: workspace:*
+        version: link:../../packages/network-rules
       '@dnd-kit/core':
         specifier: ^6.1.0
         version: 6.3.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -248,9 +263,9 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.1.3
         version: 1.2.16(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
-      '@relay/network-rules':
-        specifier: workspace:*
-        version: link:../../packages/network-rules
+      '@simplewebauthn/browser':
+        specifier: '11'
+        version: 11.0.0
       '@tanstack/react-query':
         specifier: ^5.59.0
         version: 5.103.0(react@19.3.0)
@@ -318,28 +333,28 @@ importers:
       '@aws-sdk/client-s3':
         specifier: ^3.650.0
         version: 3.1133.0
-      '@relay/ai':
+      '@cadence/ai':
         specifier: workspace:*
         version: link:../../packages/ai
-      '@relay/config':
+      '@cadence/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@relay/connectors':
+      '@cadence/connectors':
         specifier: workspace:*
         version: link:../../packages/connectors
-      '@relay/db':
+      '@cadence/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@relay/domain':
+      '@cadence/domain':
         specifier: workspace:*
         version: link:../../packages/domain
-      '@relay/mail':
+      '@cadence/mail':
         specifier: workspace:*
         version: link:../../packages/mail
-      '@relay/network-rules':
+      '@cadence/network-rules':
         specifier: workspace:*
         version: link:../../packages/network-rules
-      '@relay/token-vault':
+      '@cadence/token-vault':
         specifier: workspace:*
         version: link:../../packages/token-vault
       bullmq:
@@ -388,10 +403,10 @@ importers:
       '@ai-sdk/openai':
         specifier: ^1.0.0
         version: 1.3.24(zod@3.25.76)
-      '@relay/config':
+      '@cadence/config':
         specifier: workspace:*
         version: link:../config
-      '@relay/db':
+      '@cadence/db':
         specifier: workspace:*
         version: link:../db
       ai:
@@ -441,19 +456,19 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.650.0
         version: 3.1133.0
-      '@relay/config':
+      '@cadence/config':
         specifier: workspace:*
         version: link:../config
-      '@relay/db':
+      '@cadence/db':
         specifier: workspace:*
         version: link:../db
-      '@relay/domain':
+      '@cadence/domain':
         specifier: workspace:*
         version: link:../domain
-      '@relay/network-rules':
+      '@cadence/network-rules':
         specifier: workspace:*
         version: link:../network-rules
-      '@relay/token-vault':
+      '@cadence/token-vault':
         specifier: workspace:*
         version: link:../token-vault
       bullmq:
@@ -484,15 +499,15 @@ importers:
 
   packages/db:
     dependencies:
+      '@cadence/config':
+        specifier: workspace:*
+        version: link:../config
       '@prisma/adapter-pg':
         specifier: ^6.19.3
         version: 6.19.3
       '@prisma/client':
         specifier: ^6.0.0
         version: 6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3)
-      '@relay/config':
-        specifier: workspace:*
-        version: link:../config
       pg:
         specifier: ^8.13.0
         version: 8.23.0
@@ -521,10 +536,10 @@ importers:
 
   packages/domain:
     dependencies:
-      '@relay/db':
+      '@cadence/db':
         specifier: workspace:*
         version: link:../db
-      '@relay/entitlements':
+      '@cadence/entitlements':
         specifier: workspace:*
         version: link:../entitlements
       luxon:
@@ -561,7 +576,7 @@ importers:
 
   packages/mail:
     dependencies:
-      '@relay/config':
+      '@cadence/config':
         specifier: workspace:*
         version: link:../config
       pino:
@@ -596,10 +611,10 @@ importers:
       '@aws-sdk/client-kms':
         specifier: ^3.650.0
         version: 3.1133.0
-      '@relay/config':
+      '@cadence/config':
         specifier: workspace:*
         version: link:../config
-      '@relay/db':
+      '@cadence/db':
         specifier: workspace:*
         version: link:../db
       ioredis:
@@ -1664,6 +1679,9 @@ packages:
     resolution: {integrity: sha512-ZpJxMqB+Qfe3rp6uszCQoag4nSw42icURnBRfFYSOmTgEeOe4rD0vYlbA8spvCu2TlCesNTlEN9BLWtQqLxabA==}
     engines: {node: '>=18.0.0'}
 
+  '@hexagon/base64@1.1.28':
+    resolution: {integrity: sha512-lhqDEAvWixy3bZ+UOYbPwUbBkwBq5C1LAJ/xPC8Oi+lL54oyakv/npbA0aU2hgCsx/1NUd4IBvV03+aUBWxerw==}
+
   '@hono/node-server@1.19.17':
     resolution: {integrity: sha512-dSneS5qhiauZWGDCeK4o695Xd9nUNjviSZCMQrj10eetr8Uln1ucn6bbphOM6UynAMMtNIzZNSpL9vnASJwrPQ==}
     engines: {node: '>=18.14.1'}
@@ -1965,6 +1983,9 @@ packages:
 
   '@kurkle/color@0.3.4':
     resolution: {integrity: sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w==}
+
+  '@levischuck/tiny-cbor@0.2.11':
+    resolution: {integrity: sha512-llBRm4dT4Z89aRsm6u2oEZ8tfwL/2l6BwpZ7JcyieouniDECM5AqNgr/y08zalEIvW3RSK4upYyybDcmjXqAow==}
 
   '@lukeed/csprng@1.1.0':
     resolution: {integrity: sha512-Z7C/xXCiGWsg0KuKsHTKJxbWhpI3Vs5GwLfOean7MGyVFGqdRgBbAjOCh6u4bbjPc/8MJ2pZmK/0DLdCbivLDA==}
@@ -2328,6 +2349,29 @@ packages:
     resolution: {integrity: sha512-UqGPmo56KDfLlfXFAFIrNflHT8tFxWGEivWg3Zeyp4Uy2NlKN1FGPr6/BxcLGG3+kZ6Wp14g5Uj+n71boqZfiw==}
     cpu: [x64]
     os: [win32]
+
+  '@peculiar/asn1-android@2.9.4':
+    resolution: {integrity: sha512-SYHm4SoWSI0nRCoos6jpGusIqhPH9bbGBqv7ohlZ+H6BunrDzzQPk2ePgDuEUzV82OdvbLgtW4twUDwhU9P3YQ==}
+    engines: {node: '>=14'}
+
+  '@peculiar/asn1-ecc@2.9.4':
+    resolution: {integrity: sha512-JJXefFshRAuVAjWQo/39bkg1ywc1VaiO44S8RRC+Ykvf/u2KDmYffoDb0ZBPCR5uJy4AGKQhl8mX+Q8ShcWaXQ==}
+    engines: {node: '>=14'}
+
+  '@peculiar/asn1-rsa@2.9.4':
+    resolution: {integrity: sha512-pZ96eD1PptovcWQ/GSmuNFXd/7EQJNlKfDaNCyE2rx3W0v6QFelkzquVqRSRyyDXXCYD69ZXJDzZ8GhIiQzKoA==}
+    engines: {node: '>=14'}
+
+  '@peculiar/asn1-schema@2.9.4':
+    resolution: {integrity: sha512-GjzePcT9Iw8NzeOPf73iNS9xM+TBhd/FilAfP+RQGkTMQJTVWtytN3JHJACCjf/ABNau5S7mS3g+DcuxmRgYEg==}
+    engines: {node: '>=14'}
+
+  '@peculiar/asn1-x509@2.9.4':
+    resolution: {integrity: sha512-CxhBo/RdEbMMob7T31ZdQjGuoyRFLVwrDzTn25bihzBasRg9kRm/0IxIPvhgQtcK/9dNcO1XQL2fuPugwELL0Q==}
+    engines: {node: '>=14'}
+
+  '@peculiar/utils@2.0.3':
+    resolution: {integrity: sha512-+oL3HPFRIZ1St2K50lWCXiioIgSoxzz7R1J3uF6neO2yl1sgmpgY6XXJH4BdpoDkMWznQTeYF6oWNDZLCdQ4eQ==}
 
   '@phc/format@1.0.0':
     resolution: {integrity: sha512-m7X9U6BG2+J+R1lSOdCiITLLrxm+cWlNI3HUFA92oLO77ObGNzaKdh8pMLqdZcshtkKuV84olNNXDfMc4FezBQ==}
@@ -2922,6 +2966,17 @@ packages:
 
   '@rushstack/eslint-patch@1.16.1':
     resolution: {integrity: sha512-TvZbIpeKqGQQ7X0zSCvPH9riMSFQFSggnfBjFZ1mEoILW+UuXCKwOoPcgjMwiUtRqFZ8jWhPJc4um14vC6I4ag==}
+
+  '@simplewebauthn/browser@11.0.0':
+    resolution: {integrity: sha512-KEGCStrl08QC2I561BzxqGiwoknblP6O1YW7jApdXLPtIqZ+vgJYAv8ssLCdm1wD8HGAHd49CJLkUF8X70x/pg==}
+
+  '@simplewebauthn/server@11.0.0':
+    resolution: {integrity: sha512-zu8dxKcPiRUNSN2kmrnNOzNbRI8VaR/rL4ENCHUfC6PEE7SAAdIql9g5GBOd/wOVZolIsaZz3ccFxuGoVP0iaw==}
+    engines: {node: '>=20.0.0'}
+
+  '@simplewebauthn/types@11.0.0':
+    resolution: {integrity: sha512-b2o0wC5u2rWts31dTgBkAtSNKGX0cvL6h8QedNsKmj8O4QoLFQFR3DBVBUlpyVEhYKA+mXGUaXbcOc4JdQ3HzA==}
+    deprecated: Package no longer supported. Contact Support at https://www.npmjs.com/support for more info.
 
   '@smithy/core@3.34.1':
     resolution: {integrity: sha512-dLcOUxz8YCv1RZUMKq6GbyUf95pLbrqh34bPvpCZ1+CByFF31BEAFewZjsGCnVsZTKdThNENfGyAgk2TJqVwSw==}
@@ -3531,6 +3586,10 @@ packages:
     resolution: {integrity: sha512-BNoCY6SXXPQ7gF2opIP4GBE+Xw7U+pHMYKuzjgCN3GwiaIR09UUeKfheyIry77QtrCBlC0KK0q5/TER/tYh3PQ==}
     engines: {node: '>= 0.4'}
 
+  asn1js@3.0.10:
+    resolution: {integrity: sha512-S2s3aOytiKdFRdulw2qPE51MzjzVOisppcVv7jVFR+Kw0kxwvFrDcYA0h7Ndqbmj0HkMIXYWaoj7fli8kgx1eg==}
+    engines: {node: '>=12.0.0'}
+
   assertion-error@2.0.1:
     resolution: {integrity: sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==}
     engines: {node: '>=12'}
@@ -3785,6 +3844,9 @@ packages:
     resolution: {integrity: sha512-p0SaNjrHOnQeR8/VnfGbmg9te2kfyYSQ7Sc/j/6DtPL3JQvKxmjO9TSjNFpujqV3vEYYBvNNvXSxzyksBWAx1Q==}
     engines: {node: '>=12.0.0'}
     deprecated: v4 is no longer maintained, upgrade to v5
+
+  cross-fetch@4.1.0:
+    resolution: {integrity: sha512-uKm5PU+MHTootlWEY+mZ4vvXoCn4fLQxT9dSc1sXVMSFkINTJVN8cAQROpwcKm8bJ/c7rgZVIBWzH5T78sNZZw==}
 
   cross-inspect@1.0.0:
     resolution: {integrity: sha512-4PFfn4b5ZN6FMNGSZlyb7wUhuN8wvj8t/VQHZdM4JsDcruGJ8L2kf9zao98QIrBPFCpdk27qst/AGTl7pL3ypQ==}
@@ -5174,6 +5236,13 @@ packages:
   pure-rand@6.1.0:
     resolution: {integrity: sha512-bVWawvoZoBYpp6yIoQtQXHZjmz35RSVHnUOTefl8Vcjr8snTPY1wnpSPMWekcFwbxI6gtmT7rSYPFvz71ldiOA==}
 
+  pvtsutils@1.3.6:
+    resolution: {integrity: sha512-PLgQXQ6H2FWCaeRak8vvk1GW462lMxB5s3Jm673N82zI4vqtVUPuZdffdZbPDFRoU8kAhItWFtPCWiPpp4/EDg==}
+
+  pvutils@1.2.0:
+    resolution: {integrity: sha512-BbubeCEyTuQjVMakvJQ/Sxbc93F2pwmbsxONT/ZRrwU7Ua38d8unYTwXpTVLAKJ4BDuH9IGztCjQcd/N/39Dvg==}
+    engines: {node: '>=16.0.0'}
+
   qs@6.16.0:
     resolution: {integrity: sha512-h6fhOIaRrID2CbEY2fqs+7t+UXZo+MLAnU5gRIq85uFtdiUPCdsApMlHhXogKVM4HM2DVbIjGNTTYH2OcmP1vA==}
     engines: {node: '>=0.6'}
@@ -5680,6 +5749,13 @@ packages:
 
   typedarray@0.0.6:
     resolution: {integrity: sha512-/aCDEGatGvZ2BIk+HmLf4ifCJFwvKFNb9/JeZPMulfgFracn9QFcAf5GO8B/mweUjSoblS5In0cWhqpfs/5PQA==}
+
+  typescript-eslint@8.70.0:
+    resolution: {integrity: sha512-P/W5cz70/cQAuKfY3xwQMWWTV7BvJ0mAQmi+9mBcsVPaBUpd6Ohpa+fECv9rBFrQcig86jAiNBFNWUqnTjr4pw==}
+    engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    peerDependencies:
+      eslint: ^8.57.0 || ^9.0.0 || ^10.0.0
+      typescript: '>=4.8.4 <6.1.0'
 
   typescript@5.9.3:
     resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
@@ -7333,6 +7409,8 @@ snapshots:
       '@repeaterjs/repeater': 3.1.0
       tslib: 2.8.1
 
+  '@hexagon/base64@1.1.28': {}
+
   '@hono/node-server@1.19.17(hono@4.13.8)':
     dependencies:
       hono: 4.13.8
@@ -7559,6 +7637,8 @@ snapshots:
   '@kamilkisiela/fast-url-parser@1.1.4': {}
 
   '@kurkle/color@0.3.4': {}
+
+  '@levischuck/tiny-cbor@0.2.11': {}
 
   '@lukeed/csprng@1.1.0': {}
 
@@ -7840,6 +7920,43 @@ snapshots:
 
   '@oxc-resolver/binding-win32-x64-msvc@11.24.2':
     optional: true
+
+  '@peculiar/asn1-android@2.9.4':
+    dependencies:
+      '@peculiar/asn1-schema': 2.9.4
+      asn1js: 3.0.10
+      tslib: 2.8.1
+
+  '@peculiar/asn1-ecc@2.9.4':
+    dependencies:
+      '@peculiar/asn1-schema': 2.9.4
+      '@peculiar/asn1-x509': 2.9.4
+      asn1js: 3.0.10
+      tslib: 2.8.1
+
+  '@peculiar/asn1-rsa@2.9.4':
+    dependencies:
+      '@peculiar/asn1-schema': 2.9.4
+      '@peculiar/asn1-x509': 2.9.4
+      asn1js: 3.0.10
+      tslib: 2.8.1
+
+  '@peculiar/asn1-schema@2.9.4':
+    dependencies:
+      '@peculiar/utils': 2.0.3
+      asn1js: 3.0.10
+      tslib: 2.8.1
+
+  '@peculiar/asn1-x509@2.9.4':
+    dependencies:
+      '@peculiar/asn1-schema': 2.9.4
+      '@peculiar/utils': 2.0.3
+      asn1js: 3.0.10
+      tslib: 2.8.1
+
+  '@peculiar/utils@2.0.3':
+    dependencies:
+      tslib: 2.8.1
 
   '@phc/format@1.0.0': {}
 
@@ -8392,6 +8509,26 @@ snapshots:
   '@rtsao/scc@1.1.0': {}
 
   '@rushstack/eslint-patch@1.16.1': {}
+
+  '@simplewebauthn/browser@11.0.0':
+    dependencies:
+      '@simplewebauthn/types': 11.0.0
+
+  '@simplewebauthn/server@11.0.0':
+    dependencies:
+      '@hexagon/base64': 1.1.28
+      '@levischuck/tiny-cbor': 0.2.11
+      '@peculiar/asn1-android': 2.9.4
+      '@peculiar/asn1-ecc': 2.9.4
+      '@peculiar/asn1-rsa': 2.9.4
+      '@peculiar/asn1-schema': 2.9.4
+      '@peculiar/asn1-x509': 2.9.4
+      '@simplewebauthn/types': 11.0.0
+      cross-fetch: 4.1.0
+    transitivePeerDependencies:
+      - encoding
+
+  '@simplewebauthn/types@11.0.0': {}
 
   '@smithy/core@3.34.1':
     dependencies:
@@ -9044,6 +9181,12 @@ snapshots:
       get-intrinsic: 1.3.0
       is-array-buffer: 3.0.5
 
+  asn1js@3.0.10:
+    dependencies:
+      pvtsutils: 1.3.6
+      pvutils: 1.2.0
+      tslib: 2.8.1
+
   assertion-error@2.0.1: {}
 
   ast-types-flow@0.0.8: {}
@@ -9298,6 +9441,12 @@ snapshots:
   cron-parser@4.9.0:
     dependencies:
       luxon: 3.7.2
+
+  cross-fetch@4.1.0:
+    dependencies:
+      node-fetch: 2.7.0
+    transitivePeerDependencies:
+      - encoding
 
   cross-inspect@1.0.0:
     dependencies:
@@ -10897,6 +11046,12 @@ snapshots:
 
   pure-rand@6.1.0: {}
 
+  pvtsutils@1.3.6:
+    dependencies:
+      tslib: 2.8.1
+
+  pvutils@1.2.0: {}
+
   qs@6.16.0:
     dependencies:
       es-define-property: 1.0.1
@@ -11550,6 +11705,17 @@ snapshots:
       reflect.getprototypeof: 1.0.10
 
   typedarray@0.0.6: {}
+
+  typescript-eslint@8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3):
+    dependencies:
+      '@typescript-eslint/eslint-plugin': 8.70.0(@typescript-eslint/parser@8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3))(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+      '@typescript-eslint/parser': 8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+      '@typescript-eslint/typescript-estree': 8.70.0(typescript@5.9.3)
+      '@typescript-eslint/utils': 8.70.0(eslint@9.39.5(jiti@2.7.0))(typescript@5.9.3)
+      eslint: 9.39.5(jiti@2.7.0)
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - supports-color
 
   typescript@5.9.3: {}
 

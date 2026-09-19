@@ -40,6 +40,7 @@ model Account {
   updatedAt             DateTime  @updatedAt
   memberships           Membership[]
   sessions              Session[]
+  passkeys              Passkey[]
   apiKeys               ApiKey[]
   notificationPrefs     NotificationPref[]
   oauthIdentities       OAuthIdentity[]
@@ -106,6 +107,9 @@ model Organization {
   shortLinks     ShortLink[]
   notes          Note[]
   comments       Comment[]
+  notifications  Notification[]
+  calendarEvents CalendarEvent[]
+  savedMentions  SavedMention[]
 }
 
 enum OrgRole {
@@ -162,6 +166,8 @@ enum Network {
   GOOGLE_BUSINESS
   BLUESKY
   MASTODON
+  DEVTO
+  DISCORD
   START_PAGE
 }
 enum ChannelStatus {
@@ -286,6 +292,8 @@ model Post {
   ideaId             String?      @db.Uuid
   templateId         String?      @db.Uuid
   aiAssisted         Boolean      @default(false)
+  autoRepost         AutoRepost   @default(OFF)
+  boostedAt          DateTime?
   approval           Approval?
   tags               PostTag[]
   targets            PostTarget[]
@@ -354,6 +362,11 @@ model Approval {
   decidedAt            DateTime?
   decision             String?
   reason               String?
+  // Client sign-off captured via an unauthenticated review link (does not change publish state).
+  clientDecision       String?
+  clientDecidedAt      DateTime?
+  clientReviewerName   String?
+  clientComment        String?
 }
 
 model Note {
@@ -616,6 +629,13 @@ enum Plan {
   ESSENTIALS
   TEAM
 }
+
+/** Per-post auto-repost ("boost") policy for repost-capable networks (X, LinkedIn, Bluesky). */
+enum AutoRepost {
+  OFF
+  ALWAYS
+  SMART
+}
 model Subscription {
   organizationId       String       @id @db.Uuid
   organization         Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -710,6 +730,65 @@ model NotificationPref {
   key       String
   enabled   Boolean @default(true)
   @@id([accountId, key])
+}
+
+/** WebAuthn passkey (account-scoped, like Session — accessed via the admin client, no org RLS). */
+model Passkey {
+  id           String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  accountId    String    @db.Uuid
+  account      Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  credentialId String    @unique
+  publicKey    Bytes
+  counter      BigInt    @default(0)
+  transports   String[]
+  name         String?
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+  @@index([accountId])
+}
+
+/** Reusable @-mention placeholders saved per workspace, inserted into the composer. */
+model SavedMention {
+  id             String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  label          String
+  value          String
+  network        String?
+  createdAt      DateTime     @default(now())
+  @@index([organizationId])
+}
+
+/** Campaign / holiday / launch annotations overlaid on the publishing calendar (not posts). */
+model CalendarEvent {
+  id                 String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId     String       @db.Uuid
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title              String
+  startDate          DateTime     @db.Date
+  endDate            DateTime     @db.Date
+  color              String       @default("#F79009")
+  note               String?
+  createdByAccountId String       @db.Uuid
+  createdAt          DateTime     @default(now())
+  @@index([organizationId, startDate])
+}
+
+/** In-app notification shown in the top-bar bell (distinct from NotificationJob = notify-me publish reminders). */
+model Notification {
+  id             String       @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  organizationId String       @db.Uuid
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  accountId      String       @db.Uuid
+  type           String
+  title          String
+  body           String?
+  url            String?
+  data           Json         @default("{}")
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
+  @@index([accountId, readAt, createdAt])
+  @@index([organizationId])
 }
 
 model AuditLog {

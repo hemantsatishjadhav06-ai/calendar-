@@ -1,6 +1,6 @@
 import { Injectable, type OnModuleDestroy } from '@nestjs/common';
 import { Redis } from 'ioredis';
-import { env } from '@relay/config';
+import { env } from '@cadence/config';
 
 @Injectable()
 export class RedisService implements OnModuleDestroy {

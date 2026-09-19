@@ -1,8 +1,8 @@
 import { builder } from '../builder.js';
 import { AccountSummary } from './enums.js';
-import { prismaAdmin } from '@relay/db';
-import { within } from '@relay/entitlements';
-import { entitlement } from '@relay/domain';
+import { prismaAdmin } from '@cadence/db';
+import { within } from '@cadence/entitlements';
+import { entitlement } from '@cadence/domain';
 import { TagType } from './tags.js';
 
 builder.prismaObject('Idea', {

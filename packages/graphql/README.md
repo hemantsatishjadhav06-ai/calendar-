@@ -1,4 +1,4 @@
-# @relay/graphql — schema governance
+# @cadence/graphql — schema governance
 
 `schema.public.graphql` is the committed snapshot of the last released public API. CI runs `schema:check`, which regenerates the live schema from `apps/api` and diffs it against the snapshot. Any breaking change (removed field, narrowed type, new required argument) fails the build — exactly Buffer's approach with GraphQL Hive.
 

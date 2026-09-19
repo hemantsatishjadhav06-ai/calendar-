@@ -1,0 +1,17 @@
+{
+  "scripts": {
+    "setup": "cp $JEAN_ROOT_PATH/.env . && composer setup",
+    "teardown": null,
+    "run": "composer install && composer dev"
+  },
+  "ports": [
+    {
+      "port": 8000,
+      "label": "app"
+    },
+    {
+      "port": 5173,
+      "label": "vite"
+    }
+  ]
+}

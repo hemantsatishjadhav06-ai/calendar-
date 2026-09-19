@@ -1,17 +1,17 @@
 /**
- * Integration tests — need DATABASE_URL_ADMIN + REDIS_URL (docker compose up). Run: pnpm --filter @relay/worker test
+ * Integration tests — need DATABASE_URL_ADMIN + REDIS_URL (docker compose up). Run: pnpm --filter @cadence/worker test
  * The exactly-once guarantee is the single most important property of the system; these tests are the gate for it.
  */
 import { beforeAll, afterAll, describe, expect, it, vi } from 'vitest';
-import { prismaAdmin } from '@relay/db';
+import { prismaAdmin } from '@cadence/db';
 
 const mockPublish = vi.fn();
-vi.mock('@relay/connectors', async importOriginal => {
+vi.mock('@cadence/connectors', async importOriginal => {
   const orig: any = await importOriginal();
-  const { xRules } = await import('@relay/network-rules');
+  const { xRules } = await import('@cadence/network-rules');
   return { ...orig, getConnector: () => ({ network: 'X', rules: orig.xRules ?? xRules, publishBudget: () => [], publish: mockPublish, refresh: async (c: any) => c }) };
 });
-vi.mock('@relay/token-vault', () => ({ tokenVault: { forChannel: async () => ({ accessToken: 't', tokenType: 'bearer', extra: {} }) } }));
+vi.mock('@cadence/token-vault', () => ({ tokenVault: { forChannel: async () => ({ accessToken: 't', tokenType: 'bearer', extra: {} }) } }));
 
 const { processPublishJob } = await import('./publish.processor.js');
 

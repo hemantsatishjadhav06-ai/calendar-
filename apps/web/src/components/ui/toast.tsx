@@ -27,6 +27,10 @@ function ToastRow({ t, onDone }: { t: ToastItem; onDone: () => void }) {
   const [hover, setHover] = useState(false);
   useEffect(() => { if (hover) return; const id = setTimeout(onDone, t.action ? 8000 : 5000); return () => clearTimeout(id); }, [hover, onDone, t.action]);
   return (
+    // Pause auto-dismiss while the pointer is over the toast — a pointer-only enhancement. The toast
+    // is a role="status" live region and its action/dismiss controls are real buttons, so keyboard and
+    // screen-reader users lose nothing by this hover behavior.
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions
     <li className="toast" role="status" onMouseEnter={() => setHover(true)} onMouseLeave={() => setHover(false)} style={{ borderLeft: t.tone === 'danger' ? '4px solid #F97066' : t.tone === 'success' ? '4px solid #8FC67D' : undefined }}>
       <span style={{ flex: 1 }}>{t.message}</span>
       {t.action && (t.action.href ? <a href={t.action.href} target={t.action.href.startsWith('http') ? '_blank' : undefined} rel="noreferrer" style={{ color: '#fff' }}>{t.action.label}</a> : <button onClick={() => { t.action?.onClick?.(); onDone(); }}>{t.action.label}</button>)}

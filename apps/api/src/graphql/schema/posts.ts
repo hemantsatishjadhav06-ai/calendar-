@@ -1,10 +1,10 @@
 import { builder } from '../builder.js';
-import { PostStatusEnum, ScheduleModeEnum, SchedulingTypeEnum, Issue, AccountSummary } from './enums.js';
+import { PostStatusEnum, ScheduleModeEnum, SchedulingTypeEnum, AutoRepostEnum, Issue, AccountSummary } from './enums.js';
 import { PostsService } from '../../posts/posts.service.js';
-import { prismaAdmin } from '@relay/db';
-import { env } from '@relay/config';
+import { prismaAdmin } from '@cadence/db';
+import { env } from '@cadence/config';
 import { fetchPreview } from '../../links/preview.service.js';
-import { makeShareToken } from '../../share/share.token.js';
+import { makeShareToken, makeReviewToken } from '../../share/share.token.js';
 import { TagType } from './tags.js';
 
 builder.prismaObject('Post', {
@@ -16,6 +16,8 @@ builder.prismaObject('Post', {
     baseMedia: t.expose('baseMedia', { type: 'JSON' }),
     linkPreview: t.expose('linkPreview', { type: 'JSON', nullable: true }),
     aiAssisted: t.exposeBoolean('aiAssisted'),
+    autoRepost: t.expose('autoRepost', { type: AutoRepostEnum }),
+    boostedAt: t.expose('boostedAt', { type: 'DateTime', nullable: true }),
     ideaId: t.exposeID('ideaId', { nullable: true }),
     createdBy: t.field({ type: AccountSummary, nullable: true, resolve: p => prismaAdmin.account.findUnique({ where: { id: p.createdByAccountId }, select: { id: true, email: true, name: true, avatarUrl: true } }) }),
     createdAt: t.expose('createdAt', { type: 'DateTime' }),
@@ -56,21 +58,23 @@ builder.prismaObject('PostTarget', {
     metrics: t.field({ type: 'JSON', resolve: async (pt, _a, ctx) => { const rows = await ctx.db!.$queryRaw<{ metric: string; value: number }[]>`SELECT metric, value FROM post_metric_current WHERE "postTargetId" = ${pt.id}::uuid`; return Object.fromEntries(rows.map(r => [r.metric, Number(r.value)])); } }),
   }),
 });
-builder.prismaObject('Approval', { fields: t => ({ requestedByAccountId: t.exposeID('requestedByAccountId'), requestedAt: t.expose('requestedAt', { type: 'DateTime' }), decidedByAccountId: t.exposeID('decidedByAccountId', { nullable: true }), decidedAt: t.expose('decidedAt', { type: 'DateTime', nullable: true }), decision: t.exposeString('decision', { nullable: true }), reason: t.exposeString('reason', { nullable: true }) }) });
+builder.prismaObject('Approval', { fields: t => ({ requestedByAccountId: t.exposeID('requestedByAccountId'), requestedAt: t.expose('requestedAt', { type: 'DateTime' }), decidedByAccountId: t.exposeID('decidedByAccountId', { nullable: true }), decidedAt: t.expose('decidedAt', { type: 'DateTime', nullable: true }), decision: t.exposeString('decision', { nullable: true }), reason: t.exposeString('reason', { nullable: true }), clientDecision: t.exposeString('clientDecision', { nullable: true }), clientDecidedAt: t.expose('clientDecidedAt', { type: 'DateTime', nullable: true }), clientReviewerName: t.exposeString('clientReviewerName', { nullable: true }), clientComment: t.exposeString('clientComment', { nullable: true }) }) });
 builder.prismaObject('Note', { fields: t => ({ id: t.exposeID('id'), body: t.exposeString('body'), author: t.field({ type: AccountSummary, nullable: true, resolve: n => prismaAdmin.account.findUnique({ where: { id: n.authorAccountId }, select: { id: true, email: true, name: true, avatarUrl: true } }) }), createdAt: t.expose('createdAt', { type: 'DateTime' }), editedAt: t.expose('editedAt', { type: 'DateTime', nullable: true }) }) });
 
 const MediaInput = builder.inputType('MediaInput', { fields: t => ({ assetId: t.id({ required: true }), kind: t.string({ required: true }), altText: t.string(), userTags: t.field({ type: 'JSON' }), cover: t.field({ type: 'JSON' }), order: t.int() }) });
 const ThreadPartInput = builder.inputType('ThreadPartInput', { fields: t => ({ text: t.string({ required: true }), media: t.field({ type: [MediaInput] }) }) });
 const TargetInput = builder.inputType('TargetInput', { fields: t => ({ channelId: t.id({ required: true }), text: t.string(), media: t.field({ type: [MediaInput] }), thread: t.field({ type: [ThreadPartInput] }), firstComment: t.string(), metadata: t.field({ type: 'JSON' }), schedulingType: t.field({ type: SchedulingTypeEnum }) }) });
 const LinkPreviewInput = builder.inputType('LinkPreviewInput', { fields: t => ({ url: t.string({ required: true }), title: t.string(), description: t.string(), imageAssetId: t.id() }) });
+const RecurrenceFreqEnum = builder.enumType('RecurrenceFreq', { values: ['DAILY', 'WEEKLY', 'MONTHLY'] as const });
+const RecurrenceInput = builder.inputType('RecurrenceInput', { fields: t => ({ freq: t.field({ type: RecurrenceFreqEnum, required: true }), interval: t.int(), count: t.int({ required: true }) }) });
 const CreatePostInput = builder.inputType('CreatePostInput', {
   fields: t => ({
     baseText: t.string({ required: true }), baseMedia: t.field({ type: [MediaInput] }), linkPreview: t.field({ type: LinkPreviewInput }),
     targets: t.field({ type: [TargetInput], required: true }), mode: t.field({ type: ScheduleModeEnum, required: true }), dueAt: t.field({ type: 'DateTime' }), dueAtByChannel: t.field({ type: 'JSON' }),
-    tagIds: t.idList(), requestApproval: t.boolean(), ideaId: t.id(), templateId: t.id(), aiAssisted: t.boolean(),
+    tagIds: t.idList(), requestApproval: t.boolean(), ideaId: t.id(), templateId: t.id(), aiAssisted: t.boolean(), autoRepost: t.field({ type: AutoRepostEnum }), recurrence: t.field({ type: RecurrenceInput }),
   }),
 });
-const UpdatePostInput = builder.inputType('UpdatePostInput', { fields: t => ({ baseText: t.string(), baseMedia: t.field({ type: [MediaInput] }), linkPreview: t.field({ type: LinkPreviewInput }), targets: t.field({ type: [TargetInput] }), tagIds: t.idList(), mode: t.field({ type: ScheduleModeEnum }), dueAt: t.field({ type: 'DateTime' }) }) });
+const UpdatePostInput = builder.inputType('UpdatePostInput', { fields: t => ({ baseText: t.string(), baseMedia: t.field({ type: [MediaInput] }), linkPreview: t.field({ type: LinkPreviewInput }), targets: t.field({ type: [TargetInput] }), tagIds: t.idList(), mode: t.field({ type: ScheduleModeEnum }), dueAt: t.field({ type: 'DateTime' }), autoRepost: t.field({ type: AutoRepostEnum }) }) });
 
 const PostFilter = builder.inputType('PostFilter', { fields: t => ({ status: t.field({ type: [PostStatusEnum] }), channelIds: t.idList(), tagIds: t.idList(), from: t.field({ type: 'DateTime' }), to: t.field({ type: 'DateTime' }), search: t.string(), createdByMe: t.boolean() }) });
 
@@ -110,6 +114,7 @@ builder.mutationFields(t => ({
   rejectPost: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }), reason: t.arg.string() }, resolve: async (_r, args, ctx) => { await svc(ctx).reject(String(args.id), args.reason ?? undefined); return true; } }),
   requestApproval: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }) }, resolve: async (_r, args, ctx) => { await svc(ctx).requestApproval(String(args.id)); return true; } }),
   createShareLink: t.string({ authScopes: { user: true }, args: { postId: t.arg.id({ required: true }) }, resolve: async (_r, args, ctx) => { const post = await ctx.db!.post.findFirstOrThrow({ where: { id: String(args.postId), organizationId: ctx.tenant!.organizationId }, select: { id: true } }); return `${env.APP_URL}/share/${makeShareToken(post.id)}`; } }),
+  createReviewLink: t.string({ authScopes: { user: true }, args: { postId: t.arg.id({ required: true }) }, resolve: async (_r, args, ctx) => { const post = await ctx.db!.post.findFirstOrThrow({ where: { id: String(args.postId), organizationId: ctx.tenant!.organizationId }, select: { id: true } }); return `${env.APP_URL}/review/${makeReviewToken(post.id)}`; } }),
   revertApproval: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }) }, resolve: async (_r, args, ctx) => { await svc(ctx).revertApproval(String(args.id)); return true; } }),
   addNote: t.prismaField({ type: 'Note', authScopes: { user: true }, args: { postId: t.arg.id({ required: true }), body: t.arg.string({ required: true }) }, resolve: (q, _r, args, ctx) => ctx.db!.note.create({ ...q, data: { organizationId: ctx.tenant!.organizationId, postId: String(args.postId), authorAccountId: ctx.account!.id, body: args.body.slice(0, 5000) } }) }),
   editNote: t.prismaField({ type: 'Note', authScopes: { user: true }, args: { id: t.arg.id({ required: true }), body: t.arg.string({ required: true }) }, resolve: async (q, _r, args, ctx) => { const n = await ctx.db!.note.findUniqueOrThrow({ where: { id: String(args.id) } }); if (n.authorAccountId !== ctx.account!.id) throw new Error('Not authorized'); return ctx.db!.note.update({ ...q, where: { id: n.id }, data: { body: args.body.slice(0, 5000), editedAt: new Date() } }); } }),

@@ -1,3 +1,4 @@
+import '@cadence/config'; // side-effect: loads the nearest .env so DATABASE_URL_ADMIN is set when run directly
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL_ADMIN }) });

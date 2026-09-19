@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Modal } from '@/components/ui/primitives';
 import { useChannels } from '@/lib/hooks';
@@ -9,15 +9,20 @@ import { useComposer } from '@/components/composer/store';
 export function CommandPalette() {
   const router = useRouter(); const channels = useChannels(); const open = useComposer(s => s.open);
   const [show, setShow] = useState(false); const [q, setQ] = useState(''); const [help, setHelp] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  // "g then x" is a two-keystroke sequence, so the armed flag must survive re-renders and effect
+  // re-runs (StrictMode, router/open identity changes) between the two keys — a ref, not a closure var.
+  const gArmed = useRef(false);
+  const gTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => { if (show) inputRef.current?.focus(); }, [show]);
   useEffect(() => {
-    let g = false;
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement; const typing = ['INPUT', 'TEXTAREA'].includes(t.tagName) || t.isContentEditable;
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setShow(s => !s); return; }
       if (typing) return;
-      if (e.shiftKey && e.key === '?') { setHelp(h => !h); return; }
-      if (e.key.toLowerCase() === 'g') { g = true; setTimeout(() => (g = false), 1200); return; }
-      if (g) { const map: Record<string, string> = { h: '/home', c: '/community', p: '/all-channels', i: '/insights', a: '/calendar/week', s: '/settings' }; if (map[e.key.toLowerCase()]) router.push(map[e.key.toLowerCase()]); g = false; return; }
+      if (e.shiftKey && (e.key === '?' || e.key === '/')) { setHelp(h => !h); return; }   // '?' is Shift+/; some layouts report the base key
+      if (e.key.toLowerCase() === 'g') { gArmed.current = true; clearTimeout(gTimer.current); gTimer.current = setTimeout(() => (gArmed.current = false), 1200); return; }
+      if (gArmed.current) { const map: Record<string, string> = { h: '/home', c: '/community', p: '/all-channels', i: '/insights', a: '/calendar/week', s: '/settings' }; if (map[e.key.toLowerCase()]) router.push(map[e.key.toLowerCase()]); gArmed.current = false; return; }
       if (e.key.toLowerCase() === 'n' && !e.metaKey) open({});
     };
     const onOpen = () => setShow(true);
@@ -32,8 +37,8 @@ export function CommandPalette() {
   return (
     <>
       <Modal open={show} onOpenChange={setShow} title="Jump to" size="sm">
-        <input className="input" placeholder="Type a page or channel…" value={q} onChange={e => setQ(e.target.value)} autoFocus aria-label="Search commands" onKeyDown={e => { if (e.key === 'Enter' && items[0]) { items[0].run(); setShow(false); } }} />
-        <div className="stack" style={{ marginTop: 10 }} role="listbox">{items.map(i => <button key={i.label} className="menu-item" role="option" onClick={() => { i.run(); setShow(false); }}>{i.label}</button>)}</div>
+        <input className="input" placeholder="Type a page or channel…" value={q} onChange={e => setQ(e.target.value)} ref={inputRef} aria-label="Search commands" onKeyDown={e => { if (e.key === 'Enter' && items[0]) { items[0].run(); setShow(false); } }} />
+        <div className="stack" style={{ marginTop: 10 }} role="listbox">{items.map((i, idx) => <button key={i.label} className="menu-item" role="option" aria-selected={idx === 0} onClick={() => { i.run(); setShow(false); }}>{i.label}</button>)}</div>
       </Modal>
       <Modal open={help} onOpenChange={setHelp} title="Keyboard shortcuts" size="sm">
         <table className="table"><tbody>

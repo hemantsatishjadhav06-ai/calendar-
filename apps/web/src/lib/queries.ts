@@ -1,7 +1,7 @@
 import { gql } from 'graphql-request';
 
 export const CHANNEL_FIELDS = gql`fragment ChannelFields on Channel { id network subtype externalId displayName handle avatarUrl timezone status statusReason isPaused notifyByDefault postingGoalPerWeek sortOrder meta queueCount publishedThisWeek myAccess lastHealthCheckAt groupIds }`;
-export const TARGET_FIELDS = gql`fragment TargetFields on PostTarget { id postId channelId status schedulingType isCustomTime customized dueAt queuePosition text media thread firstComment metadata shortLinks externalUrl publishedAt attemptCount failureCode failureMessage metrics channel { id network displayName handle avatarUrl timezone } post { id status scheduleMode baseText baseMedia linkPreview aiAssisted notesCount createdBy { id name email avatarUrl } tags { id name color } approval { requestedByAccountId requestedAt decision reason } targets { id channelId } } }`;
+export const TARGET_FIELDS = gql`fragment TargetFields on PostTarget { id postId channelId status schedulingType isCustomTime customized dueAt queuePosition text media thread firstComment metadata shortLinks externalUrl publishedAt attemptCount failureCode failureMessage metrics channel { id network displayName handle avatarUrl timezone } post { id status scheduleMode baseText baseMedia linkPreview aiAssisted autoRepost notesCount createdBy { id name email avatarUrl } tags { id name color } approval { requestedByAccountId requestedAt decision reason clientDecision clientDecidedAt clientReviewerName clientComment } targets { id channelId } } }`;
 
 export const Q = {
   me: gql`query Me { me { id email name avatarUrl } organization { id name slug plan entitlements settings require2fa } }`,
@@ -13,6 +13,9 @@ export const Q = {
   targetsWithMetrics: gql`${TARGET_FIELDS} query Sent($filter: PostFilter, $first: Int, $after: String) { targets(filter: $filter, first: $first, after: $after) { edges { cursor node { ...TargetFields metrics } } pageInfo { hasNextPage endCursor } } }`,
   post: gql`${TARGET_FIELDS} query Post($id: ID!) { post(id: $id) { id status scheduleMode baseText baseMedia linkPreview tags { id name color } targets { ...TargetFields } notes { id body author { id name email avatarUrl } createdAt editedAt } approval { requestedByAccountId requestedAt decision reason } } }`,
   tags: gql`query Tags { tags { id name color postCount } }`,
+  notifications: gql`query Notifications { notifications(take: 20) { id type title body url readAt createdAt } notificationUnreadCount }`,
+  calendarEvents: gql`query CalEvents($from: DateTime, $to: DateTime) { calendarEvents(from: $from, to: $to) { id title startDate endDate color note } }`,
+  savedMentions: gql`query SavedMentions { savedMentions { id label value network } }`,
   hashtagGroups: gql`query HashtagGroups { hashtagGroups { id name hashtags } }`,
   savedReplies: gql`query SavedReplies { savedReplies { id title body } }`,
   ideas: gql`query Ideas($groupId: ID, $tagId: ID, $search: String, $first: Int, $after: String) { ideaGroups { id name sortOrder } ideas(groupId: $groupId, tagId: $tagId, search: $search, first: $first, after: $after) { edges { node { id title body media links groupId sortOrder aiGenerated usedAt tags { id name color } createdAt } } pageInfo { hasNextPage endCursor } } }`,
@@ -21,7 +24,7 @@ export const Q = {
   validatePost: gql`query Validate($input: CreatePostInput!) { validatePost(input: $input) { channelId issues { level field message } } }`,
   channelLookup: gql`query Lookup($channelId: ID!, $what: String!, $args: JSON) { channelLookup(channelId: $channelId, what: $what, args: $args) }`,
   members: gql`query Members { organization { members { id role status invitedEmail account { id email name avatarUrl } channelGrants { channelId publish community } createdAt } } }`,
-  comments: gql`query Comments($filter: CommentFilter, $sort: String, $first: Int, $after: String) { comments(filter: $filter, sort: $sort, first: $first, after: $after) { edges { node { id channelId externalPostId externalId parentExternalId kind authorName authorHandle authorAvatarUrl text attachments externalCreatedAt likeCount isHidden isOurs repliedAt resolvedAt labels sentiment triage capabilities channel { id network displayName avatarUrl } postTarget { id text media externalUrl metrics } replies { id text authorName isOurs externalCreatedAt } } } pageInfo { hasNextPage endCursor } } unansweredCount }`,
+  comments: gql`query Comments($filter: CommentFilter, $sort: String, $first: Int, $after: String) { comments(filter: $filter, sort: $sort, first: $first, after: $after) { edges { node { id channelId externalPostId externalId parentExternalId kind authorName authorHandle authorAvatarUrl text attachments externalCreatedAt likeCount isHidden isOurs repliedAt resolvedAt labels sentiment triage assignedToAccountId assignee { id name email avatarUrl } waitingMinutes capabilities channel { id network displayName avatarUrl } postTarget { id text media externalUrl metrics } replies { id text authorName isOurs externalCreatedAt } } } pageInfo { hasNextPage endCursor } } unansweredCount }`,
   commentGroups: gql`query CommentGroups($filter: CommentFilter) { commentPostGroups(filter: $filter) { externalPostId channelId count unanswered latestAt postTarget { id text media externalUrl channel { id network displayName avatarUrl } } } }`,
   insightsSummary: gql`query Summary($range: InsightsRange!) { insightsSummary(range: $range) { metric current previous change } }`,
   insightsSeries: gql`query Series($range: InsightsRange!, $metrics: [String!]!, $bucket: String) { insightsSeries(range: $range, metrics: $metrics, bucket: $bucket) { day metric value } }`,
@@ -43,6 +46,14 @@ export const M = {
   rejectPost: gql`mutation Reject($id: ID!, $reason: String) { rejectPost(id: $id, reason: $reason) }`,
   requestApproval: gql`mutation ReqApproval($id: ID!) { requestApproval(id: $id) }`,
   createShareLink: gql`mutation ShareLink($postId: ID!) { createShareLink(postId: $postId) }`,
+  createReviewLink: gql`mutation ReviewLink($postId: ID!) { createReviewLink(postId: $postId) }`,
+  createConnectionLink: gql`mutation ConnLink { createConnectionLink }`,
+  markNotificationRead: gql`mutation MarkNoti($id: ID!) { markNotificationRead(id: $id) }`,
+  markAllNotificationsRead: gql`mutation MarkAllNoti { markAllNotificationsRead }`,
+  createCalendarEvent: gql`mutation CreateCalEvent($title: String!, $startDate: DateTime!, $endDate: DateTime, $color: String, $note: String) { createCalendarEvent(title: $title, startDate: $startDate, endDate: $endDate, color: $color, note: $note) { id } }`,
+  deleteCalendarEvent: gql`mutation DeleteCalEvent($id: ID!) { deleteCalendarEvent(id: $id) }`,
+  saveSavedMention: gql`mutation SaveMention($id: ID, $label: String!, $value: String!, $network: String) { saveSavedMention(id: $id, label: $label, value: $value, network: $network) { id } }`,
+  deleteSavedMention: gql`mutation DeleteMention($id: ID!) { deleteSavedMention(id: $id) }`,
   revertApproval: gql`mutation Revert($id: ID!) { revertApproval(id: $id) }`,
   addNote: gql`mutation AddNote($postId: ID!, $body: String!) { addNote(postId: $postId, body: $body) { id } }`,
   moveToTop: gql`mutation MoveTop($targetId: ID!) { moveToTop(targetId: $targetId) }`,
@@ -81,6 +92,8 @@ export const M = {
   createTemplate: gql`mutation CreateTemplate($title: String!, $body: String!, $category: String, $personal: Boolean) { createTemplate(title: $title, body: $body, category: $category, personal: $personal) { id } }`,
   deleteTemplate: gql`mutation DeleteTemplate($id: ID!) { deleteTemplate(id: $id) }`,
   replyToComment: gql`mutation Reply($id: ID!, $text: String!) { replyToComment(id: $id, text: $text) { id repliedAt } }`,
+  assignComment: gql`mutation Assign($id: ID!, $accountId: ID) { assignComment(id: $id, accountId: $accountId) { id assignedToAccountId assignee { id name email avatarUrl } } }`,
+  setCommentTriage: gql`mutation Triage($id: ID!, $triage: String) { setCommentTriage(id: $id, triage: $triage) { id triage } }`,
   likeComment: gql`mutation Like($id: ID!, $reaction: String) { likeComment(id: $id, reaction: $reaction) }`,
   hideComment: gql`mutation Hide($id: ID!, $hidden: Boolean!) { hideComment(id: $id, hidden: $hidden) }`,
   deleteComment: gql`mutation DelComment($id: ID!) { deleteComment(id: $id) }`,

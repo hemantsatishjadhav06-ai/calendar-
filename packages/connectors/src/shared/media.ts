@@ -1,7 +1,7 @@
 import { S3Client, GetObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { env } from '@relay/config';
-import { prismaAdmin } from '@relay/db';
+import { env } from '@cadence/config';
+import { prismaAdmin } from '@cadence/db';
 import type { MediaRef } from '../types.js';
 import { ConnectorError } from './errors.js';
 

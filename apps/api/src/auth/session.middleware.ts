@@ -1,9 +1,9 @@
 import { Injectable, type NestMiddleware } from '@nestjs/common';
 import type { Request, Response, NextFunction } from 'express';
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { prismaAdmin, tenantClient, prismaApp, isUuid, type Account, type TenantPrisma } from '@relay/db';
-import { planEntitlements } from '@relay/entitlements';
-import type { TenantContext } from '@relay/domain';
+import { prismaAdmin, tenantClient, prismaApp, isUuid, type Account, type TenantPrisma } from '@cadence/db';
+import { planEntitlements } from '@cadence/entitlements';
+import type { TenantContext } from '@cadence/domain';
 import { AuthService } from './auth.service.js';
 
 export interface RequestContext {

@@ -2,8 +2,8 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { generateObject, generateText, streamText, embed } from 'ai';
 import { z } from 'zod';
-import { env } from '@relay/config';
-import { prismaAdmin } from '@relay/db';
+import { env } from '@cadence/config';
+import { prismaAdmin } from '@cadence/db';
 
 const openai = env.OPENAI_API_KEY ? createOpenAI({ apiKey: env.OPENAI_API_KEY }) : null;
 const anthropic = env.ANTHROPIC_API_KEY ? createAnthropic({ apiKey: env.ANTHROPIC_API_KEY }) : null;

@@ -1,5 +1,6 @@
 'use client';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { Suspense, useState } from 'react';
 import { RefreshCw, Settings, Plus } from 'lucide-react';
 import { TopBar } from '@/components/shell/TopBar';
@@ -22,11 +23,11 @@ function ChannelsInner() {
   const limit = ent.channels === 'unlimited' ? null : ent.channels;
   return (
     <>
-      <TopBar title="Channels" actions={<a className="btn primary sm" href="/channels/connect"><Plus size={14} /> Connect channel</a>} />
+      <TopBar title="Channels" actions={<Link className="btn primary sm" href="/channels/connect"><Plus size={14} /> Connect channel</Link>} />
       <main className="content" id="main">
         {params.get('connected') && <div className="banner info" role="status">Channel connected. We seeded a default posting schedule — adjust it in the channel settings.</div>}
         {params.get('error') && <div className="banner danger" role="alert">Could not connect: {params.get('error')}</div>}
-        {params.get('welcome') && <div className="banner info">Welcome to Relay! Connect your first channel to start scheduling.</div>}
+        {params.get('welcome') && <div className="banner info">Welcome to Cadence! Connect your first channel to start scheduling.</div>}
         <p className="subtle">{list.filter(c => c.network !== 'START_PAGE').length}{limit ? ` of ${limit}` : ''} channels connected{limit && list.length >= limit ? ' — upgrade to add more' : ''}.</p>
         <div className="chan-grid">
           {list.map(c => (
@@ -42,7 +43,7 @@ function ChannelsInner() {
               {c.lastHealthCheckAt && <span className="subtle" style={{ gridColumn: '1 / -1', fontSize: 11 }}>Last checked {fmtDateTime(c.lastHealthCheckAt)}</span>}
             </div>
           ))}
-          <a className="net-tile" href="/channels/connect" style={{ justifyContent: 'center', borderStyle: 'dashed', textDecoration: 'none' }}><Plus size={18} /> Connect a new channel</a>
+          <Link className="net-tile" href="/channels/connect" style={{ justifyContent: 'center', borderStyle: 'dashed', textDecoration: 'none' }}><Plus size={18} /> Connect a new channel</Link>
         </div>
 
         <h2 style={{ fontSize: 16, marginTop: 32 }}>Channel groups</h2>
@@ -53,7 +54,7 @@ function ChannelsInner() {
         </div>
       </main>
       <Confirm open={!!del} onOpenChange={o => !o && setDel(null)} title={`Remove ${del?.displayName}?`} body={<p>Scheduled posts for this channel will be cancelled. You can reconnect later.</p>} confirmLabel="Remove" danger onConfirm={() => remove.mutateAsync({ id: del.id })} />
-      {group && <GroupModal group={group} channels={list} onClose={() => setGroup(null)} onSave={g => { g.id ? updateGroup.mutate({ id: g.id, name: g.name, channelIds: g.channelIds }) : createGroup.mutate({ name: g.name, channelIds: g.channelIds }); setGroup(null); }} />}
+      {group && <GroupModal group={group} channels={list} onClose={() => setGroup(null)} onSave={g => { if (g.id) updateGroup.mutate({ id: g.id, name: g.name, channelIds: g.channelIds }); else createGroup.mutate({ name: g.name, channelIds: g.channelIds }); setGroup(null); }} />}
     </>
   );
 }

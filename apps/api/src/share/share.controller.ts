@@ -1,6 +1,6 @@
 import { Controller, Get, Param, Res, NotFoundException } from '@nestjs/common';
 import type { Response } from 'express';
-import { prismaAdmin } from '@relay/db';
+import { prismaAdmin } from '@cadence/db';
 import { readShareToken } from './share.token.js';
 
 /**
@@ -33,7 +33,7 @@ export class ShareController {
     if (!post) throw new NotFoundException('This post is no longer available.');
 
     return {
-      org: post.organization?.name ?? 'Relay',
+      org: post.organization?.name ?? 'Cadence',
       author: null as string | null,
       status: post.status,
       scheduleMode: post.scheduleMode,

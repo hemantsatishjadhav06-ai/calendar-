@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { createHash } from 'node:crypto';
-import { prismaAdmin } from '@relay/db';
+import { prismaAdmin } from '@cadence/db';
 
 /** rly.to/<slug> → 302 + click event (no cookies). */
 @Controller('r')

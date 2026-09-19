@@ -33,6 +33,12 @@ export async function importUrl(url: string, source: string, sourceMeta?: Record
   return waitReady(asset.id, 'image');
 }
 
+/** Crop/rotate an image server-side (via the media worker) into a new asset; resolves when it's ready. */
+export async function transformImage(assetId: string, ops: { rotate?: number; aspect?: string | null }): Promise<MediaItem> {
+  const { asset } = await rest(`/uploads/${assetId}/transform`, { method: 'POST', json: ops });
+  return waitReady(asset.id, 'image');
+}
+
 async function waitReady(assetId: string, kind: MediaItem['kind']): Promise<MediaItem> {
   for (let i = 0; i < 120; i++) {
     const a = await rest(`/uploads/${assetId}`);

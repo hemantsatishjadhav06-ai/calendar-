@@ -1,5 +1,5 @@
-import { prismaAdmin } from '@relay/db';
-import { startPageRules } from '@relay/network-rules';
+import { prismaAdmin } from '@cadence/db';
+import { startPageRules } from '@cadence/network-rules';
 import type { SocialConnector } from '../types.js';
 
 /** Pseudo-connector: "publishing" inserts into the Start Page's Updates block. No OAuth. */

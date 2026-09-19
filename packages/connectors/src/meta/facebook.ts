@@ -1,5 +1,5 @@
-import { env } from '@relay/config';
-import { facebookRules } from '@relay/network-rules';
+import { env } from '@cadence/config';
+import { facebookRules } from '@cadence/network-rules';
 import type { SocialConnector, AuthResult, PublishInput, PublishResult, MediaRef, InboxItem } from '../types.js';
 import { graph, graphAll, FB, FB_VIDEO, GRAPH_VERSION, verifyMetaWebhook, waitFor } from './graph.js';
 import { ConnectorError, http, mediaUrl, newState, assertConfigured, firstUrl, unix, log } from '../shared/index.js';

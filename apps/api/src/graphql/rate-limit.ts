@@ -1,6 +1,6 @@
 import { Redis } from 'ioredis';
-import { env } from '@relay/config';
-import type { Entitlements } from '@relay/entitlements';
+import { env } from '@cadence/config';
+import type { Entitlements } from '@cadence/entitlements';
 
 /** Public API quotas per key: 15-minute, 24-hour and 30-day rolling windows (Buffer parity). */
 export class RateLimiter {

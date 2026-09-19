@@ -1,0 +1,37 @@
+# Dependencies (installed inside the image)
+node_modules
+vendor
+
+# Build artifacts (produced inside the image)
+public/build
+public/hot
+bootstrap/ssr
+
+# Wayfinder-generated files (regenerated in the vendor stage)
+resources/js/actions
+resources/js/routes
+resources/js/wayfinder
+
+# Package discovery cache (regenerated without dev deps)
+bootstrap/cache/packages.php
+bootstrap/cache/services.php
+
+# Local runtime / secrets / VCS
+.git
+.github
+.env
+*.sqlite
+storage/logs/*.log
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/views/*
+
+# Octane frankenphp binary (image provides it)
+/frankenphp
+
+# Docs & tooling not needed in the image
+docs
+.agents
+.codex
+.cursor
+.claude

@@ -1,16 +1,22 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { TopBar } from '@/components/shell/TopBar';
-import { useNetworks, useMe } from '@/lib/hooks';
+import { useNetworks, useMe, useAccount, useMutate } from '@/lib/hooks';
+import { M } from '@/lib/queries';
 import { NetworkIcon, Modal } from '@/components/ui/primitives';
+import { toast } from '@/components/ui/toast';
 
 export default function ConnectPage() {
-  const networks = useNetworks(); const me = useMe();
+  const networks = useNetworks(); const me = useMe(); const account = useAccount();
   const [hintFor, setHintFor] = useState<any>(null); const [hint, setHint] = useState('');
+  const hintRef = useRef<HTMLInputElement>(null);
+  const connLink = useMutate(M.createConnectionLink, { onSuccess: (d: any) => { try { navigator.clipboard.writeText(d.createConnectionLink); } catch { /* shown in toast */ } toast(`Client connect link copied: ${d.createConnectionLink}`, { tone: 'success' }); } });
+  useEffect(() => { if (hintFor) hintRef.current?.focus(); }, [hintFor]);
   const start = (n: string, h?: string) => { window.location.href = `/api/oauth/${n}/start${h ? `?hint=${encodeURIComponent(h)}` : ''}`; };
+  const isAdmin = ['OWNER', 'ADMIN'].includes((account.data?.organizations?.find((o: any) => o.id === account.data?.currentOrganizationId)?.role) ?? '');
   return (
     <>
-      <TopBar title="Connect a channel" />
+      <TopBar title="Connect a channel" actions={isAdmin ? <button className="btn secondary sm" onClick={() => connLink.mutate({})} title="Generate a link a client can use to connect their own channels">🔗 Client connect link</button> : undefined} />
       <main className="content" id="main">
         <p className="subtle">You'll be sent to the network to sign in and grant access. Accept all permissions — each one maps to a feature (publishing, analytics, comments).</p>
         <div className="chan-grid">
@@ -23,8 +29,8 @@ export default function ConnectPage() {
                 className="net-tile"
                 disabled={!n.configured}
                 style={!n.configured ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
-                title={!n.configured ? "Not set up yet — this network's app credentials haven't been added to Relay" : undefined}
-                onClick={() => { if (!n.configured) return; n.needsHint ? setHintFor(n) : start(n.network); }}
+                title={!n.configured ? "Not set up yet — this network's app credentials haven't been added to Cadence" : undefined}
+                onClick={() => { if (!n.configured) return; if (n.needsHint) setHintFor(n); else start(n.network); }}
               >
                 <NetworkIcon network={n.network} />
                 <div><b style={{ display: 'block' }}>{n.label}</b><span className="subtle">{n.configured ? (n.note ?? (n.rules?.thread ? `Threads up to ${n.rules.thread} parts` : '')) : 'Not set up yet'}</span></div>
@@ -42,7 +48,7 @@ export default function ConnectPage() {
         </ul>
       </main>
       {hintFor && <Modal open onOpenChange={o => !o && setHintFor(null)} title={`Connect ${hintFor.label}`} size="sm" footer={<><span style={{ flex: 1 }} /><button className="btn secondary" onClick={() => setHintFor(null)}>Cancel</button><button className="btn primary" disabled={!hint} onClick={() => start(hintFor.network, hint)}>Continue</button></>}>
-        <div className="field"><label htmlFor="hint">{hintFor.needsHint === 'server' ? 'Your Mastodon server' : 'Your Bluesky handle'}</label><input id="hint" className="input" placeholder={hintFor.needsHint === 'server' ? 'mastodon.social' : 'you.bsky.social'} value={hint} onChange={e => setHint(e.target.value)} autoFocus /><span className="hint">{hintFor.needsHint === 'server' ? 'The domain of the instance where your account lives.' : 'We use your handle to find your account server (PDS).'}</span></div>
+        <div className="field"><label htmlFor="hint">{hintFor.needsHint === 'apikey' ? 'Your DEV.to API key' : hintFor.needsHint === 'webhook' ? 'Discord webhook URL' : hintFor.needsHint === 'server' ? 'Your Mastodon server' : 'Your Bluesky handle'}</label><input id="hint" className="input" type={hintFor.needsHint === 'apikey' ? 'password' : 'text'} autoComplete={hintFor.needsHint === 'apikey' || hintFor.needsHint === 'webhook' ? 'off' : undefined} placeholder={hintFor.needsHint === 'apikey' ? 'Paste your API key' : hintFor.needsHint === 'webhook' ? 'https://discord.com/api/webhooks/…' : hintFor.needsHint === 'server' ? 'mastodon.social' : 'you.bsky.social'} value={hint} onChange={e => setHint(e.target.value)} ref={hintRef} /><span className="hint">{hintFor.needsHint === 'apikey' ? 'Create one at DEV.to → Settings → Extensions → “DEV Community API Keys”. Stored encrypted.' : hintFor.needsHint === 'webhook' ? 'In Discord: Server Settings → Integrations → Webhooks → New Webhook → Copy Webhook URL. Stored encrypted.' : hintFor.needsHint === 'server' ? 'The domain of the instance where your account lives.' : 'We use your handle to find your account server (PDS).'}</span></div>
       </Modal>}
     </>
   );

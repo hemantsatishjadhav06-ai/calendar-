@@ -1,5 +1,5 @@
-import { env } from '@relay/config';
-import { pinterestRules } from '@relay/network-rules';
+import { env } from '@cadence/config';
+import { pinterestRules } from '@cadence/network-rules';
 import type { SocialConnector, MediaRef, Creds } from '../types.js';
 import { ConnectorError, http, readJson, newState, assertConfigured, mediaUrl, streamFromS3, sleep } from '../shared/index.js';
 

@@ -2,8 +2,8 @@ import { createYoga as create, useReadinessCheck } from 'graphql-yoga';
 import { GraphQLError } from 'graphql';
 import { schema } from './schema/index.js';
 import { buildContext } from './context.js';
-import { DomainError } from '@relay/domain';
-import { ConnectorError } from '@relay/connectors';
+import { DomainError } from '@cadence/domain';
+import { ConnectorError } from '@cadence/connectors';
 import { RateLimiter } from './rate-limit.js';
 
 const limiter = new RateLimiter();

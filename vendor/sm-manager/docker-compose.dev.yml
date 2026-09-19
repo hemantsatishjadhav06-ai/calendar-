@@ -1,0 +1,99 @@
+services:
+    mailpit:
+        image: axllent/mailpit:latest
+        pull_policy: always
+        container_name: shoutrrr-mail
+        restart: unless-stopped
+        ports:
+            - "${FORWARD_MAILPIT_PORT:-1025}:1025"
+            - "${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025"
+        networks:
+            - shoutrrr
+
+    app:
+        image: shoutrrr:dev
+        pull_policy: never
+        build:
+            context: .
+            dockerfile: Dockerfile
+            args:
+                USER_ID: "${USERID:-1000}"
+                GROUP_ID: "${GROUPID:-1000}"
+                SERVERSIDEUP_PHP_VERSION: "${SERVERSIDEUP_PHP_VERSION:-8.5-frankenphp-trixie}"
+                POSTGRES_VERSION: "${POSTGRES_VERSION:-17}"
+                AUTORUN_ENABLED: "${AUTORUN_ENABLED:-true}"
+                AUTORUN_LARAVEL_CONFIG_CACHE: "false"
+                AUTORUN_LARAVEL_EVENT_CACHE: "false"
+                AUTORUN_LARAVEL_ROUTE_CACHE: "false"
+                AUTORUN_LARAVEL_VIEW_CACHE: "false"
+                PHP_OPCACHE_ENABLE: "0"
+        env_file:
+            - .env
+        environment:
+            APP_ENV: "${APP_ENV:-local}"
+            APP_DEBUG: "${APP_DEBUG:-true}"
+            APP_URL: "${DOCKER_APP_URL:-http://127.0.0.1:8000}"
+            AUTORUN_ENABLED: "false"
+            PHP_OPCACHE_ENABLE: "0"
+            OCTANE_SERVER: frankenphp
+            SSL_MODE: off
+            DB_CONNECTION: "${DB_CONNECTION:-sqlite}"
+            DB_DATABASE: "${DB_DATABASE:-/var/www/html/database/sqlite/database.sqlite}"
+            CACHE_STORE: "${CACHE_STORE:-database}"
+            QUEUE_CONNECTION: "${QUEUE_CONNECTION:-database}"
+            QUEUE_WORKER_COUNT: "${QUEUE_WORKER_COUNT:-1}"
+            SESSION_DRIVER: "${SESSION_DRIVER:-database}"
+            MAIL_MAILER: "${DOCKER_MAIL_MAILER:-smtp}"
+            MAIL_HOST: "${DOCKER_MAIL_HOST:-mailpit}"
+            MAIL_PORT: "${DOCKER_MAIL_PORT:-1025}"
+            MAIL_USERNAME: "${DOCKER_MAIL_USERNAME:-null}"
+            MAIL_PASSWORD: "${DOCKER_MAIL_PASSWORD:-null}"
+            MAIL_SCHEME: "${DOCKER_MAIL_SCHEME:-null}"
+            MAIL_FROM_ADDRESS: "${DOCKER_MAIL_FROM_ADDRESS:-hello@shoutrrr.local}"
+            MAIL_FROM_NAME: "${DOCKER_MAIL_FROM_NAME:-Shoutrrr}"
+            QUEUE_WORKER_ENABLED: "${QUEUE_WORKER_ENABLED:-true}"
+            SCHEDULER_ENABLED: "${SCHEDULER_ENABLED:-true}"
+            INERTIA_SSR_ENABLED: "${INERTIA_SSR_ENABLED:-false}"
+            INERTIA_SSR_URL: "${INERTIA_SSR_URL:-http://127.0.0.1:13714}"
+        depends_on:
+            - mailpit
+        ports:
+            - "${APP_PORT:-8000}:8080"
+        volumes:
+            - .:/var/www/html:cached
+        command: >
+            /bin/bash -lc "
+            composer install --no-interaction &&
+            php artisan package:discover --ansi &&
+            php artisan migrate --force --no-interaction &&
+            php artisan storage:link --force --no-interaction &&
+            php artisan db:seed --class=DefaultUserSeeder --force --no-interaction &&
+            exec supervisord -c /etc/supervisor/laravel.conf
+            "
+        stop_grace_period: 60s
+        healthcheck:
+            test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/up || exit 1"]
+            start_period: 20s
+            interval: 10s
+            timeout: 5s
+            retries: 10
+        networks:
+            - shoutrrr
+
+    vite:
+        image: shoutrrr:dev
+        pull_policy: never
+        container_name: shoutrrr-vite
+        working_dir: /var/www/html
+        entrypoint: []
+        environment:
+            VITE_HOST: "${VITE_HOST:-0.0.0.0}"
+            VITE_PORT: "${VITE_PORT:-5173}"
+            VITE_HMR_HOST: "${VITE_HMR_HOST:-localhost}"
+        ports:
+            - "${VITE_PORT:-5173}:${VITE_PORT:-5173}"
+        volumes:
+            - .:/var/www/html:cached
+        command: /bin/bash -lc "composer install --no-interaction && bun install && bun run dev -- --host $${VITE_HOST} --port $${VITE_PORT}"
+        networks:
+            - shoutrrr

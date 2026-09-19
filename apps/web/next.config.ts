@@ -3,7 +3,7 @@ import type { NextConfig } from 'next';
 const API = process.env.API_URL ?? 'http://localhost:4000';
 const config: NextConfig = {
   reactStrictMode: true,
-  transpilePackages: ['@relay/network-rules'],
+  transpilePackages: ['@cadence/network-rules'],
   images: { remotePatterns: [{ protocol: 'https', hostname: '**' }, { protocol: 'http', hostname: 'localhost' }] },
   async rewrites() {
     // Same-origin API calls in the browser (cookies work without CORS tricks)

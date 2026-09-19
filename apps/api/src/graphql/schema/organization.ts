@@ -1,11 +1,11 @@
 import { randomBytes } from 'node:crypto';
 import { builder } from '../builder.js';
 import { OrgRoleEnum, PublishAccessEnum, CommunityAccessEnum, PlanEnum, AccountSummary } from './enums.js';
-import { prismaAdmin } from '@relay/db';
-import { DomainError } from '@relay/domain';
-import { within } from '@relay/entitlements';
+import { prismaAdmin } from '@cadence/db';
+import { DomainError } from '@cadence/domain';
+import { within } from '@cadence/entitlements';
 import { mail } from '../../mail/mail.js';
-import { env } from '@relay/config';
+import { env } from '@cadence/config';
 
 builder.prismaObject('Organization', {
   fields: t => ({

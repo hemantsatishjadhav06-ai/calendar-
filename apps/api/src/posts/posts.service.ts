@@ -1,12 +1,13 @@
-import { prismaAdmin, type Prisma, type PostTarget, type Channel, type TenantPrisma } from '@relay/db';
-import { rulesFor, validateTarget, hasErrors, type Issue, type MediaLite } from '@relay/network-rules';
-import { QueueOps, assertCan, requiresApproval, DomainError, entitlement, isAdmin, extractHashtags, type TenantContext } from '@relay/domain';
-import { within } from '@relay/entitlements';
+import { prismaAdmin, type Prisma, type PostTarget, type Channel, type TenantPrisma } from '@cadence/db';
+import { rulesFor, validateTarget, hasErrors, type Issue, type MediaLite } from '@cadence/network-rules';
+import { QueueOps, assertCan, requiresApproval, DomainError, entitlement, isAdmin, extractHashtags, type TenantContext } from '@cadence/domain';
+import { within } from '@cadence/entitlements';
 import { QueuesService } from '../infra/queues.service.js';
 import { ShortenerService } from '../links/shortener.service.js';
 import { events } from '../events/events.bus.js';
+import { pushNotification, pushToMany } from '../notifications/notify.js';
 import { mail } from '../mail/mail.js';
-import { env } from '@relay/config';
+import { env } from '@cadence/config';
 
 export interface TargetInput {
   channelId: string;
@@ -30,6 +31,17 @@ export interface CreatePostInput {
   ideaId?: string | null;
   templateId?: string | null;
   aiAssisted?: boolean;
+  autoRepost?: 'OFF' | 'ALWAYS' | 'SMART';
+  recurrence?: { freq: 'DAILY' | 'WEEKLY' | 'MONTHLY'; interval?: number; count: number } | null;
+}
+
+/** Shift a date forward by n periods of the given frequency (month-aware). */
+function addPeriods(base: Date, freq: 'DAILY' | 'WEEKLY' | 'MONTHLY', n: number): Date {
+  const d = new Date(base);
+  if (freq === 'DAILY') d.setDate(d.getDate() + n);
+  else if (freq === 'WEEKLY') d.setDate(d.getDate() + n * 7);
+  else d.setMonth(d.getMonth() + n);
+  return d;
 }
 
 const queues = new QueuesService();
@@ -83,7 +95,7 @@ export class PostsService {
     const post = await this.db.tx(async tx => {
       const post = await tx.post.create({ data: {
         organizationId: tenant.organizationId, createdByAccountId: this.account.id, status: postStatus, scheduleMode: mode,
-        baseText: input.baseText, baseMedia: (input.baseMedia ?? []) as any, linkPreview: input.linkPreview as any ?? undefined, ideaId: input.ideaId ?? undefined, templateId: input.templateId ?? undefined, aiAssisted: !!input.aiAssisted,
+        baseText: input.baseText, baseMedia: (input.baseMedia ?? []) as any, linkPreview: input.linkPreview as any ?? undefined, ideaId: input.ideaId ?? undefined, templateId: input.templateId ?? undefined, aiAssisted: !!input.aiAssisted, autoRepost: input.autoRepost ?? 'OFF',
         tags: { create: (input.tagIds ?? []).map(tagId => ({ tagId })) },
         approval: needsApproval && mode !== 'DRAFT' ? { create: { requestedByAccountId: this.account.id } } : undefined,
       } });
@@ -117,6 +129,21 @@ export class PostsService {
     if (input.ideaId) await this.db.idea.updateMany({ where: { id: input.ideaId }, data: { usedAt: new Date() } });
     for (const ch of channels.values()) events.publish(tenant.organizationId, { type: 'queue.changed', channelId: ch.id });
     await prismaAdmin.auditLog.create({ data: { organizationId: tenant.organizationId, actorAccountId: this.account.id, action: 'post.create', entity: 'Post', entityId: post.id, diff: { mode, channels: [...channels.keys()] } } });
+
+    // Recurrence: materialise the following occurrences up front as independent scheduled posts,
+    // shifting each time forward. Only for a fixed-time (CUSTOM) post; bounded to 12 occurrences.
+    // Stops quietly if a later occurrence trips a plan cap so we never half-spam the queue.
+    const rec = input.recurrence;
+    if (rec && mode === 'CUSTOM' && (input.dueAt || input.dueAtByChannel)) {
+      const count = Math.min(12, Math.max(2, rec.count));
+      const interval = Math.min(30, Math.max(1, rec.interval ?? 1));
+      const shiftMap = (n: number) => input.dueAtByChannel ? Object.fromEntries(Object.entries(input.dueAtByChannel).map(([k, v]) => [k, addPeriods(new Date(v as any), rec.freq, n * interval)])) : undefined;
+      for (let n = 1; n < count; n++) {
+        try {
+          await this.create({ ...input, recurrence: null, requestApproval: input.requestApproval, ideaId: null, dueAt: input.dueAt ? addPeriods(new Date(input.dueAt), rec.freq, n * interval) : null, dueAtByChannel: shiftMap(n) });
+        } catch { break; }
+      }
+    }
     return this.db.post.findUniqueOrThrow({ where: { id: post.id }, include: { targets: { include: { channel: true } }, tags: { include: { tag: true } }, approval: true } });
   }
 
@@ -142,7 +169,7 @@ export class PostsService {
     const baseText = input.baseText ?? post.baseText;
     const baseMedia = (input.baseMedia ?? post.baseMedia) as any;
     await this.db.tx(async tx => {
-      await tx.post.update({ where: { id: postId }, data: { baseText, baseMedia, ...(input.linkPreview !== undefined ? { linkPreview: input.linkPreview as any } : {}), ...(input.tagIds ? { tags: { deleteMany: {}, create: input.tagIds.map(tagId => ({ tagId })) } } : {}) } });
+      await tx.post.update({ where: { id: postId }, data: { baseText, baseMedia, ...(input.autoRepost !== undefined ? { autoRepost: input.autoRepost } : {}), ...(input.linkPreview !== undefined ? { linkPreview: input.linkPreview as any } : {}), ...(input.tagIds ? { tags: { deleteMany: {}, create: input.tagIds.map(tagId => ({ tagId })) } } : {}) } });
       for (const t of post.targets) {
         const ti = input.targets?.find(x => x.channelId === t.channelId);
         const text = ti?.text ?? (t.customized ? t.text : baseText);
@@ -209,7 +236,9 @@ export class PostsService {
     const targets = await this.db.postTarget.findMany({ where: { postId }, include: { channel: true } });
     await this.place(targets, decision.mode, status);
     const requester = await prismaAdmin.account.findUnique({ where: { id: post.approval!.requestedByAccountId } });
-    if (requester) await mail.send({ to: requester.email, template: 'approval_decided', data: { channel: targets.map(t => t.channel.displayName).join(', '), decision: 'Approved', url: `${env.APP_URL}/channels/${targets[0]?.channelId}/queue` } });
+    const chNames = targets.map(t => t.channel.displayName).join(', ');
+    if (requester) await mail.send({ to: requester.email, template: 'approval_decided', data: { channel: chNames, decision: 'Approved', url: `${env.APP_URL}/channels/${targets[0]?.channelId}/queue` } });
+    if (post.approval!.requestedByAccountId !== this.account.id) await pushNotification({ organizationId: this.tenant.organizationId, accountId: post.approval!.requestedByAccountId, type: 'approval.approved', title: 'Post approved', body: `${this.account.name ?? this.account.email} approved your post for ${chNames}`, url: `/channels/${targets[0]?.channelId}/queue` });
     for (const t of targets) events.publish(this.tenant.organizationId, { type: 'queue.changed', channelId: t.channelId });
   }
   async reject(postId: string, reason?: string) {
@@ -222,7 +251,9 @@ export class PostsService {
       if (reason) await tx.note.create({ data: { organizationId: this.tenant.organizationId, postId, authorAccountId: this.account.id, body: `Rejected: ${reason}` } });
     });
     const requester = await prismaAdmin.account.findUnique({ where: { id: post.approval!.requestedByAccountId } });
-    if (requester) await mail.send({ to: requester.email, template: 'approval_decided', data: { channel: post.targets.map(t => t.channel.displayName).join(', '), decision: 'Rejected', reason, url: `${env.APP_URL}/channels/${post.targets[0]?.channelId}/drafts` } });
+    const chNames = post.targets.map(t => t.channel.displayName).join(', ');
+    if (requester) await mail.send({ to: requester.email, template: 'approval_decided', data: { channel: chNames, decision: 'Rejected', reason, url: `${env.APP_URL}/channels/${post.targets[0]?.channelId}/drafts` } });
+    if (post.approval!.requestedByAccountId !== this.account.id) await pushNotification({ organizationId: this.tenant.organizationId, accountId: post.approval!.requestedByAccountId, type: 'approval.rejected', title: 'Changes requested', body: `${this.account.name ?? this.account.email} requested changes on your post${reason ? `: ${reason}` : ''}`, url: `/channels/${post.targets[0]?.channelId}/drafts` });
   }
   async requestApproval(postId: string) {
     const post = await this.db.post.findFirstOrThrow({ where: { id: postId, organizationId: this.tenant.organizationId, status: 'DRAFT' }, include: { targets: { include: { channel: true } } } });
@@ -243,7 +274,9 @@ export class PostsService {
     const members = await prismaAdmin.membership.findMany({ where: { organizationId: this.tenant.organizationId, status: 'ACTIVE' }, include: { account: true, channelGrants: true } });
     const approvers = members.filter(m => m.role !== 'MEMBER' || targets.every(t => m.channelGrants.find(g => g.channelId === t.channelId)?.publish === 'FULL'));
     const preview = targets[0]?.text.slice(0, 120) ?? '';
-    for (const m of approvers) if (m.accountId !== this.account.id) await mail.send({ to: m.account.email, template: 'approval_requested', data: { requester: this.account.name ?? this.account.email, channel: targets.map(t => t.channel.displayName).join(', '), preview, url: `${env.APP_URL}/channels/${targets[0]?.channelId}/approvals` } });
+    const chNames = targets.map(t => t.channel.displayName).join(', ');
+    for (const m of approvers) if (m.accountId !== this.account.id) await mail.send({ to: m.account.email, template: 'approval_requested', data: { requester: this.account.name ?? this.account.email, channel: chNames, preview, url: `${env.APP_URL}/channels/${targets[0]?.channelId}/approvals` } });
+    await pushToMany(approvers.map(m => m.accountId), { organizationId: this.tenant.organizationId, type: 'approval.requested', title: 'Approval requested', body: `${this.account.name ?? this.account.email} needs your approval for ${chNames}`, url: `/channels/${targets[0]?.channelId}/approvals` }, this.account.id);
     events.publish(this.tenant.organizationId, { type: 'approval.requested', postId });
   }
 

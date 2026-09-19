@@ -1,6 +1,6 @@
 import { builder } from '../builder.js';
 
-export const NetworkEnum = builder.enumType('Network', { values: ['FACEBOOK', 'INSTAGRAM', 'THREADS', 'X', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'PINTEREST', 'GOOGLE_BUSINESS', 'BLUESKY', 'MASTODON', 'START_PAGE'] as const });
+export const NetworkEnum = builder.enumType('Network', { values: ['FACEBOOK', 'INSTAGRAM', 'THREADS', 'X', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'PINTEREST', 'GOOGLE_BUSINESS', 'BLUESKY', 'MASTODON', 'DEVTO', 'DISCORD', 'START_PAGE'] as const });
 export const ChannelStatusEnum = builder.enumType('ChannelStatus', { values: ['ACTIVE', 'RECONNECT_REQUIRED', 'LOCKED', 'DISCONNECTED'] as const });
 export const PostStatusEnum = builder.enumType('PostStatus', { values: ['DRAFT', 'PENDING_APPROVAL', 'QUEUED', 'SCHEDULED', 'PUBLISHING', 'PUBLISHED', 'PARTIALLY_PUBLISHED', 'FAILED', 'NOTIFIED', 'CANCELLED'] as const });
 export const ScheduleModeEnum = builder.enumType('ScheduleMode', { values: ['QUEUE', 'SHARE_NEXT', 'CUSTOM', 'NOW', 'DRAFT'] as const });
@@ -10,6 +10,7 @@ export const PublishAccessEnum = builder.enumType('PublishAccess', { values: ['F
 export const CommunityAccessEnum = builder.enumType('CommunityAccess', { values: ['FULL', 'VIEW', 'NONE'] as const });
 export const CommentKindEnum = builder.enumType('CommentKind', { values: ['COMMENT', 'REPLY', 'MENTION', 'REVIEW', 'DM'] as const });
 export const PlanEnum = builder.enumType('Plan', { values: ['FREE', 'ESSENTIALS', 'TEAM'] as const });
+export const AutoRepostEnum = builder.enumType('AutoRepost', { values: ['OFF', 'ALWAYS', 'SMART'] as const });
 
 export const MutationError = builder.objectRef<{ code: string; message: string; field?: string | null }>('MutationError').implement({
   fields: t => ({ code: t.exposeString('code'), message: t.exposeString('message'), field: t.exposeString('field', { nullable: true }) }),

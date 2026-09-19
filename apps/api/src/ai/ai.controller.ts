@@ -1,9 +1,9 @@
 import { Body, Controller, Post, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import { z } from 'zod';
-import { prismaAdmin } from '@relay/db';
-import { runAssistant, suggestReply, takeaways } from '@relay/ai';
-import { DomainError, entitlement } from '@relay/domain';
+import { prismaAdmin } from '@cadence/db';
+import { runAssistant, suggestReply, takeaways } from '@cadence/ai';
+import { DomainError, entitlement } from '@cadence/domain';
 import { requireTenant } from '../auth/session.middleware.js';
 import { RedisService } from '../infra/redis.service.js';
 

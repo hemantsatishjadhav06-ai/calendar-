@@ -1,5 +1,5 @@
-import { env } from '@relay/config';
-import { tiktokRules } from '@relay/network-rules';
+import { env } from '@cadence/config';
+import { tiktokRules } from '@cadence/network-rules';
 import type { SocialConnector, MediaRef } from '../types.js';
 import { ConnectorError, http, readJson, newState, assertConfigured, mediaUrl, sleep, chunks, hmacHex, safeEqual } from '../shared/index.js';
 

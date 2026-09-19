@@ -2,9 +2,9 @@ import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { S3Client, CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { z } from 'zod';
-import { env } from '@relay/config';
-import { prismaAdmin } from '@relay/db';
-import { DomainError } from '@relay/domain';
+import { env } from '@cadence/config';
+import { prismaAdmin } from '@cadence/db';
+import { DomainError } from '@cadence/domain';
 import { requireTenant } from '../auth/session.middleware.js';
 import { QueuesService } from '../infra/queues.service.js';
 
@@ -69,6 +69,20 @@ export class UploadsController {
     if (!/^https:$/.test(url.protocol)) throw new DomainError('VALIDATION', 'Only https URLs can be imported');
     const asset = await prismaAdmin.asset.create({ data: { organizationId: tenant.organizationId, uploadedByAccountId: account.id, kind: 'image', originalKey: '', mime: 'application/octet-stream', bytes: 0, sha256: '', source: body.source, sourceMeta: { ...(body.sourceMeta ?? {}), url: body.url }, status: 'processing' } });
     await this.queues.get('media').add('import', { assetId: asset.id, organizationId: tenant.organizationId, url: body.url, filename: body.filename }, { jobId: `import-${asset.id}` });
+    return { asset };
+  }
+
+  /** Crop/rotate an image into a NEW asset (original preserved). rotate ∈ {0,90,180,270}; aspect "w:h" or null. */
+  @Post(':id/transform')
+  async transform(@Param('id') id: string, @Body() body: { rotate?: number; aspect?: string | null }) {
+    const { tenant, account } = requireTenant();
+    const src = await prismaAdmin.asset.findFirstOrThrow({ where: { id, organizationId: tenant.organizationId } });
+    if (src.kind !== 'image') throw new DomainError('VALIDATION', 'Only images can be edited');
+    const sourceKey = (src.renditions as any)?.clean?.key ?? src.originalKey;
+    const asset = await prismaAdmin.asset.create({ data: { organizationId: tenant.organizationId, uploadedByAccountId: account.id, kind: 'image', originalKey: '', mime: 'image/jpeg', bytes: 0, sha256: '', source: 'transform', sourceMeta: { from: id, rotate: body.rotate ?? 0, aspect: body.aspect ?? null }, status: 'processing' } });
+    const key = `orgs/${tenant.organizationId}/assets/${asset.id}/original.jpg`;
+    await prismaAdmin.asset.update({ where: { id: asset.id }, data: { originalKey: key } });
+    await this.queues.get('media').add('transform', { assetId: asset.id, organizationId: tenant.organizationId, sourceKey, rotate: body.rotate ?? 0, aspect: body.aspect ?? null }, { jobId: `transform-${asset.id}` });
     return { asset };
   }
 

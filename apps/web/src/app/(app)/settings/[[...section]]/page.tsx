@@ -8,7 +8,7 @@ import { rest } from '@/lib/api';
 import { Avatar, Confirm, Modal, UpgradeHint } from '@/components/ui/primitives';
 import { toast } from '@/components/ui/toast';
 import { tzList, fmtDateTime } from '@/lib/format';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 
 const SECTIONS = [['account', 'Account'], ['security', 'Security & 2FA'], ['preferences', 'Preferences'], ['notifications', 'Notifications'], ['organization', 'Organization'], ['team', 'Team members'], ['tags', 'Tags'], ['saved-replies', 'Saved replies'], ['integrations', 'Apps & extras'], ['api', 'API'], ['audit', 'Activity log']];
 
@@ -34,17 +34,39 @@ function Section({ title, children, desc }: { title: string; children: React.Rea
 function Account() {
   const a = useAccount(); const save = useMutate(M.updatePreferences, { invalidate: [['account']], success: 'Saved' });
   const [name, setName] = useState(''); useEffect(() => setName(a.data?.name ?? ''), [a.data]);
-  return (<><Section title="Profile"><div className="field"><label htmlFor="name">Name</label><input id="name" className="input" value={name} onChange={e => setName(e.target.value)} onBlur={() => name !== a.data?.name && save.mutate({ input: { name } })} /></div><div className="field"><label>Email</label><input className="input" value={a.data?.email ?? ''} disabled /><span className="hint">Contact support to change your sign-in email.</span></div></Section>
+  return (<><Section title="Profile"><div className="field"><label htmlFor="name">Name</label><input id="name" className="input" value={name} onChange={e => setName(e.target.value)} onBlur={() => name !== a.data?.name && save.mutate({ input: { name } })} /></div><div className="field"><label htmlFor="acc-email">Email</label><input id="acc-email" className="input" value={a.data?.email ?? ''} disabled /><span className="hint">Contact support to change your sign-in email.</span></div></Section>
     <Section title="Delete account" desc="Removes your account. Organizations you own must be transferred or deleted first."><button className="btn danger sm" onClick={() => toast('Contact support to delete your account (compliance hold).')}>Delete my account</button></Section></>);
 }
 
 function Security() {
   const a = useAccount(); const qc = useQueryClient(); const [setup, setSetup] = useState<{ secret: string; otpauth: string } | null>(null); const [code, setCode] = useState(''); const [codes, setCodes] = useState<string[] | null>(null);
-  return (<Section title="Two-factor authentication" desc="Adds a 6-digit code from an authenticator app to your sign-in.">
+  return (<><Section title="Two-factor authentication" desc="Adds a 6-digit code from an authenticator app to your sign-in.">
     {a.data?.totpEnabled ? <div className="row"><span className="tag brand">Enabled</span><button className="btn secondary sm" onClick={async () => { const c = prompt('Enter a current code to disable 2FA'); if (c) { await rest('/auth/totp/disable', { method: 'POST', json: { code: c } }); qc.invalidateQueries({ queryKey: ['account'] }); toast('2FA disabled'); } }}>Disable</button></div>
       : setup ? <div className="stack"><p>Scan this in your authenticator app, or enter the key manually: <code>{setup.secret}</code></p><img alt="QR code for authenticator app" src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(setup.otpauth)}`} width={180} height={180} /><div className="row"><input className="input" style={{ width: 160 }} inputMode="numeric" placeholder="123456" value={code} onChange={e => setCode(e.target.value)} aria-label="Code" /><button className="btn primary sm" onClick={async () => { try { const r = await rest('/auth/totp/confirm', { method: 'POST', json: { code } }); setCodes(r.recoveryCodes); setSetup(null); qc.invalidateQueries({ queryKey: ['account'] }); } catch (e: any) { toast(e.message, { tone: 'danger' }); } }}>Confirm</button></div></div>
       : <button className="btn primary sm" onClick={async () => setSetup(await rest('/auth/totp/begin', { method: 'POST' }))}>Set up 2FA</button>}
     {codes && <Modal open onOpenChange={() => setCodes(null)} title="Recovery codes" size="sm"><p>Store these somewhere safe. Each works once if you lose your authenticator.</p><pre className="ai-out">{codes.join('\n')}</pre></Modal>}
+  </Section><Passkeys /></>);
+}
+
+function Passkeys() {
+  const list = useQuery<{ passkeys: any[] }>({ queryKey: ['passkeys'], queryFn: () => rest('/auth/passkeys') }); const qc = useQueryClient(); const [busy, setBusy] = useState(false);
+  const add = async () => {
+    setBusy(true);
+    try {
+      const { startRegistration } = await import('@simplewebauthn/browser');
+      const options = await rest('/auth/passkey/register/begin', { method: 'POST' });
+      const response = await startRegistration({ optionsJSON: options });
+      await rest('/auth/passkey/register/finish', { method: 'POST', json: { response, name: `Passkey · ${new Date().toLocaleDateString()}` } });
+      qc.invalidateQueries({ queryKey: ['passkeys'] }); toast('Passkey added', { tone: 'success' });
+    } catch (e: any) { if (e?.name !== 'NotAllowedError') toast(e.message ?? 'Could not add passkey', { tone: 'danger' }); } finally { setBusy(false); }
+  };
+  const remove = async (id: string) => { await rest('/auth/passkey/delete', { method: 'POST', json: { id } }); qc.invalidateQueries({ queryKey: ['passkeys'] }); toast('Passkey removed'); };
+  return (<Section title="Passkeys" desc="Sign in with Face ID, Touch ID, Windows Hello or a security key — no password needed.">
+    <div className="stack">
+      {(list.data?.passkeys ?? []).map((p: any) => <div key={p.id} className="row" style={{ justifyContent: 'space-between', borderBottom: '1px solid var(--border)', padding: '8px 0' }}><span>🔑 {p.name}<span className="subtle" style={{ marginLeft: 8 }}>added {new Date(p.createdAt).toLocaleDateString()}{p.lastUsedAt ? ` · last used ${new Date(p.lastUsedAt).toLocaleDateString()}` : ''}</span></span><button className="btn ghost sm" onClick={() => confirm(`Remove ${p.name}?`) && remove(p.id)}>Remove</button></div>)}
+      {list.data && !list.data.passkeys.length && <p className="subtle">No passkeys yet.</p>}
+      <button className="btn primary sm" disabled={busy} onClick={add} style={{ alignSelf: 'flex-start' }}>{busy ? 'Waiting…' : 'Add a passkey'}</button>
+    </div>
   </Section>);
 }
 
@@ -63,7 +85,7 @@ function Preferences() {
 function Notifications() {
   const prefs = useGql<any>(['prefs'], Q.notificationPrefs); const set = useMutate(M.setNotificationPref, { invalidate: [['prefs']] });
   const keys: [string, string, string][] = [['post_published', 'Published post confirmations', 'An email each time a post goes live'], ['post_failed', 'Failed posts', 'When a post could not be published'], ['channel_connection', 'Channel connection updates', 'When a channel needs to be reconnected'], ['empty_queue', 'Empty queue alerts', 'A daily nudge when a channel has nothing scheduled'], ['comment_digest', 'Comment digests', 'Hourly summary of unanswered comments'], ['collaboration', 'Collaboration', 'Approvals, notes and mentions from your team'], ['billing', 'Billing and payment reminders', 'Invoices, trial ending, failed payments']];
-  return (<Section title="Email notifications" desc="Transactional emails (sign-in, security) are always sent.">{keys.map(([k, l, d]) => <label key={k} className="row" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}><input type="checkbox" checked={prefs.data?.notificationPrefs?.[k] ?? true} onChange={e => set.mutate({ key: k, enabled: e.target.checked })} /><div><b style={{ fontSize: 13 }}>{l}</b><div className="subtle">{d}</div></div></label>)}</Section>);
+  return (<Section title="Email notifications" desc="Transactional emails (sign-in, security) are always sent.">{keys.map(([k, l, d]) => <label key={k} htmlFor={`np-${k}`} className="row" style={{ padding: '8px 0', borderBottom: '1px solid var(--border)' }}><input id={`np-${k}`} type="checkbox" aria-label={l} checked={prefs.data?.notificationPrefs?.[k] ?? true} onChange={e => set.mutate({ key: k, enabled: e.target.checked })} /><div><b style={{ fontSize: 13 }}>{l}</b><div className="subtle">{d}</div></div></label>)}</Section>);
 }
 
 function Organization() {
@@ -98,7 +120,7 @@ function SavedReplies() {
 }
 
 function Integrations() {
-  const items: [string, string, string | null, string][] = [['Bitly', 'Shorten links with your own Bitly account and see clicks in Insights.', null, 'Coming soon'], ['Canva', 'Create and import designs straight into the composer.', null, 'Coming soon'], ['Unsplash & GIPHY', 'Free photos and GIFs in the media picker.', null, 'Built in'], ['Google Drive & Photos', 'Pick files from Drive and Photos in the media picker.', null, 'Coming soon'], ['Dropbox', 'Attach files from Dropbox.', null, 'Coming soon'], ['Mailchimp', 'Email signup block on your Start Page (paste your form URL in the block).', null, 'Built in'], ['Zapier / Make / n8n', 'Automate with your API key.', '/settings/api', 'Connect'], ['MCP (Claude, ChatGPT, Cursor)', 'Use Relay from your AI assistant with the same API key.', '/settings/api', 'Connect']];
+  const items: [string, string, string | null, string][] = [['Bitly', 'Shorten links with your own Bitly account and see clicks in Insights.', null, 'Coming soon'], ['Canva', 'Create and import designs straight into the composer.', null, 'Coming soon'], ['Unsplash & GIPHY', 'Free photos and GIFs in the media picker.', null, 'Built in'], ['Google Drive & Photos', 'Pick files from Drive and Photos in the media picker.', null, 'Coming soon'], ['Dropbox', 'Attach files from Dropbox.', null, 'Coming soon'], ['Mailchimp', 'Email signup block on your Start Page (paste your form URL in the block).', null, 'Built in'], ['Zapier / Make / n8n', 'Automate with your API key.', '/settings/api', 'Connect'], ['MCP (Claude, ChatGPT, Cursor)', 'Use Cadence from your AI assistant with the same API key.', '/settings/api', 'Connect']];
   return (<Section title="Apps & extras"><div className="stack">{items.map(([n, d, href, label]) => <div key={n} className="row" style={{ padding: '10px 0', borderBottom: '1px solid var(--border)' }}><div style={{ flex: 1 }}><b style={{ fontSize: 13 }}>{n}</b><div className="subtle">{d}</div></div>{href ? <a className="btn secondary sm" href={href}>{label}</a> : <span className="tag">{label}</span>}</div>)}</div></Section>);
 }
 

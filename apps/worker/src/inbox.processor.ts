@@ -1,9 +1,9 @@
 import { Worker, type Job } from 'bullmq';
-import { prismaAdmin, type Channel } from '@relay/db';
-import { getConnector, classifyError, type InboxItem, type WebhookEvent } from '@relay/connectors';
-import { tokenVault } from '@relay/token-vault';
+import { prismaAdmin, type Channel } from '@cadence/db';
+import { getConnector, classifyError, type InboxItem, type WebhookEvent } from '@cadence/connectors';
+import { tokenVault } from '@cadence/token-vault';
 import { connection, queue, log, emit } from './infra.js';
-import { triageComment } from '@relay/ai';
+import { triageComment } from '@cadence/ai';
 
 /** Poll intervals per network (ms). Networks with webhooks poll rarely as a safety net. */
 const POLL_MS: Record<string, number> = { BLUESKY: 2 * 60_000, MASTODON: 3 * 60_000, YOUTUBE: 10 * 60_000, X: 15 * 60_000, GOOGLE_BUSINESS: 30 * 60_000, FACEBOOK: 60 * 60_000, INSTAGRAM: 60 * 60_000, THREADS: 60 * 60_000, LINKEDIN: 30 * 60_000, TIKTOK: 6 * 3600_000, PINTEREST: 0, START_PAGE: 0 };

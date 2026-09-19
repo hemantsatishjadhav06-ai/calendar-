@@ -1,5 +1,5 @@
 import { Redis } from 'ioredis';
-import { env } from '@relay/config';
+import { env } from '@cadence/config';
 
 export type RelayEvent =
   | { type: 'target.published'; targetId: string; url?: string }
@@ -10,6 +10,7 @@ export type RelayEvent =
   | { type: 'comment.new'; commentId: string; channelId: string }
   | { type: 'comment.updated'; commentId: string }
   | { type: 'approval.requested'; postId: string }
+  | { type: 'notification.created'; accountId: string }
   | { type: 'asset.ready'; assetId: string }
   | { type: 'asset.failed'; assetId: string; error: string };
 

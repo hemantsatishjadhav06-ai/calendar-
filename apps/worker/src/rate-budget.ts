@@ -1,5 +1,5 @@
 import { redis } from './infra.js';
-import type { BudgetSpec } from '@relay/connectors';
+import type { BudgetSpec } from '@cadence/connectors';
 
 const SCRIPT = `
 redis.call('ZREMRANGEBYSCORE', KEYS[1], 0, tonumber(ARGV[1]) - tonumber(ARGV[2]) * 1000)

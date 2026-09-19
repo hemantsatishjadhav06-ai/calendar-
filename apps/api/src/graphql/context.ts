@@ -1,5 +1,5 @@
-import type { Account, TenantPrisma } from '@relay/db';
-import type { TenantContext } from '@relay/domain';
+import type { Account, TenantPrisma } from '@cadence/db';
+import type { TenantContext } from '@cadence/domain';
 import type { RequestContext } from '../auth/session.middleware.js';
 
 export interface GqlContext {

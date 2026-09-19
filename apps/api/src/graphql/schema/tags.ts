@@ -1,15 +1,17 @@
 import { builder } from '../builder.js';
-import { entitlement } from '@relay/domain';
-import { within } from '@relay/entitlements';
+import { entitlement } from '@cadence/domain';
+import { within } from '@cadence/entitlements';
 
 export const TagType = builder.prismaObject('Tag', { fields: t => ({ id: t.exposeID('id'), name: t.exposeString('name'), color: t.exposeString('color'), postCount: t.relationCount('posts') }) });
 builder.prismaObject('HashtagGroup', { fields: t => ({ id: t.exposeID('id'), name: t.exposeString('name'), hashtags: t.exposeStringList('hashtags') }) });
 builder.prismaObject('SavedReply', { fields: t => ({ id: t.exposeID('id'), title: t.exposeString('title'), body: t.exposeString('body') }) });
+builder.prismaObject('SavedMention', { fields: t => ({ id: t.exposeID('id'), label: t.exposeString('label'), value: t.exposeString('value'), network: t.exposeString('network', { nullable: true }) }) });
 
 builder.queryFields(t => ({
   tags: t.prismaField({ type: ['Tag'], authScopes: { user: true }, resolve: (q, _r, _a, ctx) => ctx.db!.tag.findMany({ ...q, where: { organizationId: ctx.tenant!.organizationId }, orderBy: { name: 'asc' } }) }),
   hashtagGroups: t.prismaField({ type: ['HashtagGroup'], authScopes: { user: true }, resolve: (q, _r, _a, ctx) => ctx.db!.hashtagGroup.findMany({ ...q, where: { organizationId: ctx.tenant!.organizationId }, orderBy: { name: 'asc' } }) }),
   savedReplies: t.prismaField({ type: ['SavedReply'], authScopes: { user: true }, resolve: (q, _r, _a, ctx) => ctx.db!.savedReply.findMany({ ...q, where: { organizationId: ctx.tenant!.organizationId }, orderBy: { title: 'asc' } }) }),
+  savedMentions: t.prismaField({ type: ['SavedMention'], authScopes: { user: true }, resolve: (q, _r, _a, ctx) => ctx.db!.savedMention.findMany({ ...q, where: { organizationId: ctx.tenant!.organizationId }, orderBy: { label: 'asc' } }) }),
 }));
 
 builder.mutationFields(t => ({
@@ -28,4 +30,9 @@ builder.mutationFields(t => ({
     return a.id ? ctx.db!.savedReply.update({ ...q, where: { id: String(a.id) }, data }) : ctx.db!.savedReply.create({ ...q, data: { organizationId: ctx.tenant!.organizationId, ...data } });
   } }),
   deleteSavedReply: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }) }, resolve: async (_r, a, ctx) => { await ctx.db!.savedReply.delete({ where: { id: String(a.id) } }); return true; } }),
+  saveSavedMention: t.prismaField({ type: 'SavedMention', authScopes: { user: true }, args: { id: t.arg.id(), label: t.arg.string({ required: true }), value: t.arg.string({ required: true }), network: t.arg.string() }, resolve: async (q, _r, a, ctx) => {
+    const data = { label: a.label.trim().slice(0, 80), value: a.value.trim().slice(0, 200), network: a.network ?? null };
+    return a.id ? ctx.db!.savedMention.update({ ...q, where: { id: String(a.id) }, data }) : ctx.db!.savedMention.create({ ...q, data: { organizationId: ctx.tenant!.organizationId, ...data } });
+  } }),
+  deleteSavedMention: t.boolean({ authScopes: { user: true }, args: { id: t.arg.id({ required: true }) }, resolve: async (_r, a, ctx) => { await ctx.db!.savedMention.deleteMany({ where: { id: String(a.id), organizationId: ctx.tenant!.organizationId } }); return true; } }),
 }));

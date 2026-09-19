@@ -1,5 +1,5 @@
 import { Redis } from 'ioredis';
-import { env } from '@relay/config';
+import { env } from '@cadence/config';
 
 export interface LinkPreview { url: string; title?: string; description?: string; image?: string; siteName?: string }
 

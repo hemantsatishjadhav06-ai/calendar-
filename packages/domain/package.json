@@ -1,11 +1,11 @@
 {
-  "name": "@relay/domain",
+  "name": "@cadence/domain",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "scripts": { "typecheck": "tsc --noEmit", "test": "vitest run" },
-  "dependencies": { "@relay/db": "workspace:*", "@relay/entitlements": "workspace:*", "luxon": "^3.5.0" },
+  "dependencies": { "@cadence/db": "workspace:*", "@cadence/entitlements": "workspace:*", "luxon": "^3.5.0" },
   "devDependencies": { "@types/luxon": "^3.4.2", "typescript": "^5.6.3", "vitest": "^2.1.3" }
 }

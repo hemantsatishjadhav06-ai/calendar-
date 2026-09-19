@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { prismaAdmin, type Network, type Channel } from '@relay/db';
-import { getConnector, type Candidate } from '@relay/connectors';
-import { tokenVault, type Creds } from '@relay/token-vault';
-import { DEFAULT_SLOTS, QueueOps, entitlement, type TenantContext } from '@relay/domain';
-import { within } from '@relay/entitlements';
+import { prismaAdmin, type Network, type Channel } from '@cadence/db';
+import { getConnector, type Candidate } from '@cadence/connectors';
+import { tokenVault, type Creds } from '@cadence/token-vault';
+import { DEFAULT_SLOTS, QueueOps, entitlement, type TenantContext } from '@cadence/domain';
+import { within } from '@cadence/entitlements';
 import { QueuesService } from '../infra/queues.service.js';
 import { events } from '../events/events.bus.js';
 

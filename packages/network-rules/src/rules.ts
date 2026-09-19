@@ -128,8 +128,32 @@ export const startPageRules: NetworkRules = {
   metadataSchema: z.object({ link: z.string().url().optional() }).passthrough(),
 };
 
+// DEV.to (Forem) — long-form Markdown articles rather than short social posts. The post text is the
+// article body_markdown; a title is required and lives in metadata, plus up to 4 tags, an optional
+// series and a canonical URL. One optional cover image (main_image). No native comments/polls API here.
+export const devtoRules: NetworkRules = {
+  network: 'DEVTO', label: 'DEV.to',
+  text: { max: 250000, counter: codepoints },
+  media: { maxImages: 1, maxVideos: 0, mixImagesVideo: false, gif: false, image: { formats: ['jpeg', 'png', 'webp', 'gif'], maxBytes: 25e6 } },
+  features: { firstComment: false, location: false, userTags: false, linkPreviewEditable: 'none', polls: false, scheduleNative: false, notifyMe: false, title: { max: 250, required: true }, like: false, hide: false, deleteComment: false, reply: false },
+  quota: { note: 'Article publishing via the Forem API key' },
+  metadataSchema: z.object({ title: z.string().min(1).max(250), tags: z.array(z.string().regex(/^[a-z0-9]+$/i)).max(4).optional(), series: z.string().max(150).optional(), canonicalUrl: z.string().url().optional(), published: z.boolean().optional() }).passthrough(),
+};
+
+// Discord — publishes to a channel via an Incoming Webhook. Message content is capped at 2000 chars;
+// up to 10 attachments (images/gif/video) ride along as multipart files. No native polls/comments API
+// for webhooks. Optional per-post override of the webhook's display name + avatar.
+export const discordRules: NetworkRules = {
+  network: 'DISCORD', label: 'Discord',
+  text: { max: 2000, counter: codepoints },
+  media: { maxImages: 10, maxVideos: 1, mixImagesVideo: true, gif: true, image: { formats: ['jpeg', 'png', 'gif', 'webp'], maxBytes: 8e6 }, video: { formats: ['mp4', 'mov', 'webm'], maxBytes: 8e6, minS: 0, maxS: 3600 }, altTextMax: 1024 },
+  features: { firstComment: false, location: false, userTags: false, linkPreviewEditable: 'none', polls: false, scheduleNative: false, notifyMe: false, like: false, hide: false, deleteComment: false, reply: false },
+  quota: { note: 'Publishing via an Incoming Webhook' },
+  metadataSchema: z.object({ username: z.string().max(80).optional(), avatarUrl: z.string().url().optional(), tts: z.boolean().optional() }).passthrough(),
+};
+
 export const RULES: Record<string, NetworkRules> = {
   FACEBOOK: facebookRules, INSTAGRAM: instagramRules, THREADS: threadsRules, X: xRules, LINKEDIN: linkedinRules, TIKTOK: tiktokRules,
-  YOUTUBE: youtubeRules, PINTEREST: pinterestRules, GOOGLE_BUSINESS: gbpRules, BLUESKY: blueskyRules, MASTODON: mastodonRules, START_PAGE: startPageRules,
+  YOUTUBE: youtubeRules, PINTEREST: pinterestRules, GOOGLE_BUSINESS: gbpRules, BLUESKY: blueskyRules, MASTODON: mastodonRules, DEVTO: devtoRules, DISCORD: discordRules, START_PAGE: startPageRules,
 };
 export const rulesFor = (network: string): NetworkRules => { const r = RULES[network]; if (!r) throw new Error(`No rules for ${network}`); return r; };

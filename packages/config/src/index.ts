@@ -1,5 +1,28 @@
-import 'dotenv/config';
+import { config as loadDotenv } from 'dotenv';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { z } from 'zod';
+
+// Load the nearest `.env` by walking up from the current working directory.
+// In this monorepo each package runs with its own directory as cwd (turbo,
+// vitest), so a plain `dotenv/config` would miss the root `.env`. Walking up
+// finds it whether we're run from the repo root or from a package/app folder,
+// and falls back to real process env in production (where no file exists).
+function loadNearestDotenv(): void {
+  let dir = process.cwd();
+  for (let i = 0; i < 8; i++) {
+    const candidate = join(dir, '.env');
+    if (existsSync(candidate)) {
+      loadDotenv({ path: candidate });
+      return;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  loadDotenv();
+}
+loadNearestDotenv();
 
 const optional = z.string().optional().transform(v => (v === '' ? undefined : v));
 
@@ -33,9 +56,9 @@ const schema = z.object({
   STRIPE_SECRET_KEY: optional, STRIPE_WEBHOOK_SECRET: optional,
   STRIPE_PRICE_ESSENTIALS_MONTHLY: optional, STRIPE_PRICE_ESSENTIALS_YEARLY: optional, STRIPE_PRICE_TEAM_MONTHLY: optional, STRIPE_PRICE_TEAM_YEARLY: optional,
   AI_PROVIDER: z.enum(['openai', 'anthropic']).default('openai'), OPENAI_API_KEY: optional, ANTHROPIC_API_KEY: optional,
-  UNSPLASH_ACCESS_KEY: optional, GIPHY_API_KEY: optional, CANVA_CLIENT_ID: optional, CANVA_CLIENT_SECRET: optional, DROPBOX_APP_KEY: optional,
+  UNSPLASH_ACCESS_KEY: optional, PEXELS_API_KEY: optional, GIPHY_API_KEY: optional, CANVA_CLIENT_ID: optional, CANVA_CLIENT_SECRET: optional, DROPBOX_APP_KEY: optional,
   BITLY_CLIENT_ID: optional, BITLY_CLIENT_SECRET: optional, MAILCHIMP_CLIENT_ID: optional, MAILCHIMP_CLIENT_SECRET: optional,
-  RESEND_API_KEY: optional, MAIL_FROM: z.string().default('Relay <no-reply@relay.local>'),
+  RESEND_API_KEY: optional, MAIL_FROM: z.string().default('Cadence <no-reply@relay.local>'),
   SENTRY_DSN: optional, OTEL_EXPORTER_OTLP_ENDPOINT: optional, WORKOS_API_KEY: optional, WORKOS_CLIENT_ID: optional,
 });
 
@@ -54,7 +77,7 @@ export function loadEnv(): Env {
 }
 export const env: Env = new Proxy({} as Env, { get: (_t, k) => (loadEnv() as any)[k as string] });
 
-/** Feature flags: static defaults overridable per organization via the FeatureFlag table (see @relay/db). */
+/** Feature flags: static defaults overridable per organization via the FeatureFlag table (see @cadence/db). */
 export const DEFAULT_FLAGS = {
   network_tiktok: false,        // enable after TikTok audit
   network_youtube: false,       // enable after quota extension

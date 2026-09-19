@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { rulesFor } from '@relay/network-rules';
+import { rulesFor } from '@cadence/network-rules';
 import type { TargetDraft } from './store';
 import { gqlRequest } from '@/lib/api';
 import { Q } from '@/lib/queries';
@@ -17,7 +17,7 @@ export function NetworkOptions({ channel, target, onChange, entitlements }: { ch
 
   return (
     <div className="options" aria-label={`${channel.displayName} options`}>
-      {rules.postTypes && <div className="field"><label>Post type</label><div className="tabs" role="radiogroup">{rules.postTypes.map(p => <button key={p.id} role="radio" aria-checked={(md.postType ?? rules.postTypes![0].id) === p.id} className="tab" style={{ border: '1px solid var(--border)', background: (md.postType ?? rules.postTypes![0].id) === p.id ? 'var(--bg-inset)' : 'none', cursor: 'pointer' }} onClick={() => set('postType', p.id)}>{p.label}</button>)}</div></div>}
+      {rules.postTypes && <div className="field"><span className="group-label">Post type</span><div className="tabs" role="radiogroup" aria-label="Post type">{rules.postTypes.map(p =><button key={p.id} role="radio" aria-checked={(md.postType ?? rules.postTypes![0].id) === p.id} className="tab" style={{ border: '1px solid var(--border)', background: (md.postType ?? rules.postTypes![0].id) === p.id ? 'var(--bg-inset)' : 'none', cursor: 'pointer' }} onClick={() => set('postType', p.id)}>{p.label}</button>)}</div></div>}
 
       {channel.network === 'INSTAGRAM' && <>
         {md.postType === 'reel' && <Toggle label="Also share to feed" checked={md.shareToFeed !== false} onChange={v => set('shareToFeed', v)} />}
@@ -80,7 +80,7 @@ export function NetworkOptions({ channel, target, onChange, entitlements }: { ch
       </>}
 
       {rules.features.firstComment && <div className="field"><label htmlFor="fc">First comment {!entitlements.firstComment && <UpgradeHint feature="First comment" />}</label><textarea id="fc" className="textarea" style={{ minHeight: 60 }} disabled={!entitlements.firstComment} value={target.firstComment} onChange={e => onChange({ firstComment: e.target.value })} placeholder="Posted as the first comment right after publishing — great for hashtags" /></div>}
-      {rules.features.notifyMe && <div className="field"><label>Publishing</label><div className="tabs" role="radiogroup"><button role="radio" aria-checked={target.schedulingType === 'AUTOMATIC'} className="tab" style={{ border: '1px solid var(--border)', background: target.schedulingType === 'AUTOMATIC' ? 'var(--bg-inset)' : 'none', cursor: 'pointer' }} onClick={() => onChange({ schedulingType: 'AUTOMATIC' })}>Automatic</button><button role="radio" aria-checked={target.schedulingType === 'NOTIFICATION'} className="tab" style={{ border: '1px solid var(--border)', background: target.schedulingType === 'NOTIFICATION' ? 'var(--bg-inset)' : 'none', cursor: 'pointer' }} onClick={() => onChange({ schedulingType: 'NOTIFICATION' })}>📱 Notify me</button></div><span className="hint">Notify me sends you a reminder to finish the post in the app — needed for music, stickers, product tags and Facebook Groups.</span></div>}
+      {rules.features.notifyMe && <div className="field"><span className="group-label">Publishing</span><div className="tabs" role="radiogroup" aria-label="Publishing"><button role="radio" aria-checked={target.schedulingType === 'AUTOMATIC'} className="tab" style={{ border: '1px solid var(--border)', background: target.schedulingType === 'AUTOMATIC' ? 'var(--bg-inset)' : 'none', cursor: 'pointer' }} onClick={() => onChange({ schedulingType: 'AUTOMATIC' })}>Automatic</button><button role="radio" aria-checked={target.schedulingType === 'NOTIFICATION'} className="tab" style={{ border: '1px solid var(--border)', background: target.schedulingType === 'NOTIFICATION' ? 'var(--bg-inset)' : 'none', cursor: 'pointer' }} onClick={() => onChange({ schedulingType: 'NOTIFICATION' })}>📱 Notify me</button></div><span className="hint">Notify me sends you a reminder to finish the post in the app — needed for music, stickers, product tags and Facebook Groups.</span></div>}
     </div>
   );
 }

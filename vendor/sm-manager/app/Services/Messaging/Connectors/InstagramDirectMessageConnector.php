@@ -1,0 +1,131 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Messaging\Connectors;
+
+use App\Dto\Messaging\ConversationFetchResult;
+use App\Dto\Messaging\FetchedConversation;
+use App\Dto\Messaging\FetchedMessage;
+use App\Dto\Messaging\MessageSendResult;
+use App\Enums\MessageDirection;
+use App\Enums\Platform;
+use App\Enums\UsageCategory;
+use App\Models\ConnectedAccount;
+use App\Models\Conversation;
+use App\Models\PostMedia;
+use App\Services\Media\PublicMediaUrl;
+use App\Services\Messaging\Connectors\Concerns\InteractsWithMetaGraph;
+use App\Services\Messaging\Contracts\DirectMessageConnector;
+use App\Services\Usage\Concerns\TracksUsage;
+use App\Support\UsageOperation;
+use Carbon\CarbonImmutable;
+use Illuminate\Http\Client\Factory as HttpFactory;
+
+/**
+ * Lists conversations and sends replies via the Instagram Messaging
+ * (Graph API) Conversations endpoint, using the linked Page access token
+ * stored on the connected account. Meta enforces a 24-hour reply window
+ * from the counterpart's latest inbound message; sends outside that
+ * window are declined locally without hitting the API.
+ */
+class InstagramDirectMessageConnector implements DirectMessageConnector
+{
+    use InteractsWithMetaGraph;
+    use TracksUsage;
+
+    private const string PLATFORM_PARAM = 'instagram';
+
+    public function __construct(
+        private readonly HttpFactory $http,
+        private readonly PublicMediaUrl $publicMediaUrl,
+    ) {}
+
+    /** @param array<string, mixed> $credentials */
+    public function fetchConversations(ConnectedAccount $account, array $credentials, ?CarbonImmutable $since): ConversationFetchResult
+    {
+        $token = (string) ($credentials['access_token'] ?? '');
+        $response = $this->http->acceptJson()->get($this->metaGraphBase()."/{$account->remote_account_id}/conversations", [
+            'platform' => self::PLATFORM_PARAM,
+            'fields' => 'participants,updated_time,messages{id,from,message,created_time}',
+            'limit' => 50,
+            'access_token' => $token,
+        ]);
+
+        $this->meter(UsageCategory::ExternalApi, UsageOperation::DM_FETCH, $account, $response);
+
+        if ($response->failed() || $response->json('error')) {
+            return $this->mapMetaFetchFailure($response);
+        }
+
+        $ourId = (string) $account->remote_account_id;
+        $conversations = [];
+
+        foreach ($response->json('data', []) as $convo) {
+            $conversations[] = $this->mapConversation($convo, $ourId);
+        }
+
+        return ConversationFetchResult::ok($conversations);
+    }
+
+    /** @param array<string, mixed> $convo */
+    private function mapConversation(array $convo, string $ourId): FetchedConversation
+    {
+        /** @var array<int, array<string, mixed>> $participants */
+        $participants = $convo['participants']['data'] ?? [];
+        $counterpart = collect($participants)
+            ->first(fn (array $p): bool => (string) ($p['id'] ?? '') !== $ourId);
+
+        $messages = [];
+        $latestInbound = null;
+
+        foreach ($convo['messages']['data'] ?? [] as $m) {
+            $fromId = (string) ($m['from']['id'] ?? '');
+            $inbound = $fromId !== $ourId;
+            $createdAt = CarbonImmutable::parse($m['created_time']);
+
+            if ($inbound && ($latestInbound === null || $createdAt->gt($latestInbound))) {
+                $latestInbound = $createdAt;
+            }
+
+            $messages[] = new FetchedMessage(
+                remoteMessageId: (string) $m['id'],
+                direction: $inbound ? MessageDirection::Inbound : MessageDirection::Outbound,
+                authorRemoteId: $fromId,
+                text: $m['message'] ?? null,
+                attachments: [],
+                remoteCreatedAt: $createdAt,
+            );
+        }
+
+        return new FetchedConversation(
+            remoteConversationId: (string) $convo['id'],
+            counterpartHandle: isset($counterpart['username']) ? '@'.$counterpart['username'] : null,
+            counterpartName: $counterpart['name'] ?? ($counterpart['username'] ?? null),
+            counterpartAvatarUrl: null,
+            counterpartRemoteId: $counterpart['id'] ?? null,
+            messagingWindowExpiresAt: $this->metaWindowFrom($latestInbound),
+            messages: $messages,
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $credentials
+     * @param  list<PostMedia>  $media
+     */
+    public function sendMessage(ConnectedAccount $account, Conversation $conversation, string $text, array $credentials, array $media = []): MessageSendResult
+    {
+        if (! $conversation->canReplyNow()) {
+            return MessageSendResult::unsupported('The 24-hour messaging window for this conversation has closed.');
+        }
+
+        return $this->sendMetaDirectMessage(
+            account: $account,
+            conversation: $conversation,
+            text: $text,
+            token: (string) ($credentials['access_token'] ?? ''),
+            media: $media,
+            platform: Platform::Instagram,
+        );
+    }
+}

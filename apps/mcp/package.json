@@ -1,5 +1,5 @@
 {
-  "name": "@relay/mcp",
+  "name": "@cadence/mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.4.0",
-    "@relay/config": "workspace:*",
-    "@relay/network-rules": "workspace:*",
+    "@cadence/config": "workspace:*",
+    "@cadence/network-rules": "workspace:*",
     "express": "^4.21.0",
     "zod": "^3.23.8"
   },

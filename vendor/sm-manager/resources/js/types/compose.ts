@@ -1,0 +1,188 @@
+import type { EditSettings } from '@/lib/image-editor/settings';
+
+export const BASE_TAB = '__base__';
+
+export type PlatformName =
+    | 'x'
+    | 'bluesky'
+    | 'linkedin'
+    | 'facebook'
+    | 'instagram'
+    | 'threads'
+    | 'discord';
+
+export type PostFormat = 'feed' | 'reels' | 'story';
+
+/**
+ * Per-platform display text / handles for a mention, plus the non-platform
+ * `linkedin_urn` key which carries a raw LinkedIn company URL / numeric id /
+ * `urn:li:organization:ID`. The server normalizes it into a canonical URN on
+ * save; the client only captures and round-trips the raw string.
+ */
+export type MentionHandles = Partial<
+    Record<PlatformName | 'linkedin_urn', string>
+>;
+
+export type WorkspaceMention = {
+    id: string;
+    name: string;
+    handles: MentionHandles;
+};
+
+export type MentionPlaceholder = {
+    id: string;
+    label: string;
+    handles: MentionHandles;
+};
+
+export type Destination =
+    | { kind: 'all' }
+    | { kind: 'none' }
+    | { kind: 'set'; id: string }
+    | { kind: 'account'; id: string }
+    | { kind: 'accounts'; ids: string[] };
+
+export type AccountStatus = 'active' | 'needs_attention';
+
+export type Account = {
+    id: string;
+    platform: PlatformName;
+    handle: string;
+    display_name: string | null;
+    avatar_url: string | null;
+    status?: AccountStatus;
+    max_text_length: number;
+    /** Account-specific duration cap; X Premium tiers can exceed the platform default. */
+    max_video_duration_seconds?: number;
+    x_premium: boolean;
+    /** Account-level Auto-boost opt-in; per-post boost is a no-op without it. */
+    auto_repost_enabled?: boolean;
+};
+
+export type AccountSet = {
+    id: string;
+    name: string;
+    connected_account_ids: string[];
+};
+
+export type PlatformLimits = {
+    platform: PlatformName;
+    maxLength: number;
+    maxBytes: number | null;
+    maxMedia: number;
+    /** Platform rejects a post with no image or video (Instagram). */
+    requiresMedia: boolean;
+    maxMediaBytes: number;
+    allowedMime: string[];
+    threadMax: number | null;
+    maxImageDimensions: { width: number; height: number };
+    allowedVideoMime: string[];
+    maxVideoBytes: number;
+    maxVideoDurationSeconds: number;
+    /** Allowed width:height ratio bounds for a video, or null when unconstrained. */
+    videoAspectRatioRange: { min: number; max: number } | null;
+};
+
+export type MediaView = {
+    id: string;
+    url: string;
+    mime: string;
+    kind: 'image' | 'video';
+    alt_text: string | null;
+    duration_seconds: number | null;
+    position: number;
+    edit_settings: EditSettings | null;
+    source_url: string | null;
+    /** Same-origin proxy URL the canvas editor fetches (display URLs omit CORS headers). */
+    edit_url: string;
+    /** Same-origin proxy URL for the retained pre-edit source; null when none. */
+    source_edit_url: string | null;
+};
+
+/** An upload still in flight (or just failed) — rendered as a ghost chip. */
+export type PendingUpload = {
+    tempId: string;
+    /** Image vs video — drives whether the preview chip renders <img> or <video>. */
+    kind: 'image' | 'video';
+    /** Local object-URL preview shown immediately; absent where unsupported. */
+    previewUrl?: string;
+    status: 'processing' | 'uploading' | 'error';
+    /** Progress 0–100; set during client-side compression and the storage PUT. */
+    progress?: number;
+    /** The thread segment this upload was targeting when it began. */
+    segmentRef: string;
+    /** Server-provided reason for a failed upload (e.g. a validation message); falls back to a generic label when absent. */
+    errorMessage?: string;
+};
+
+export type TargetStatus =
+    | 'pending'
+    | 'publishing'
+    | 'published'
+    | 'failed'
+    | 'skipped'
+    | 'deleting'
+    | 'deleted';
+
+export type PostStatus =
+    | 'draft'
+    | 'scheduled'
+    | 'publishing'
+    | 'published'
+    | 'partial'
+    | 'failed'
+    | 'missed'
+    | 'deleted';
+
+/** A single media placement: which segment (by ref) a media id sits in, and its order within that segment. */
+export type Placement = {
+    media_id: string;
+    segment_ref: string;
+    position: number;
+};
+
+export type TargetView = {
+    id: string;
+    connected_account_id: string;
+    platform: PlatformName;
+    handle: string | null;
+    display_name: string | null;
+    avatar_url: string | null;
+    sections: string[];
+    content_override: { segments?: string[]; media_ids?: string[] } | null;
+    auto_split: boolean;
+    format: PostFormat;
+    issues: string[];
+    status: TargetStatus;
+    error_kind: string | null;
+    error_message: string | null;
+    attempts: number;
+    remote_id: string | null;
+    segment_breaks?: string[];
+    placements?: Placement[];
+};
+
+export type PostView = {
+    id: string;
+    base_text: string;
+    segments: string[];
+    mentions?: MentionPlaceholder[];
+    status: PostStatus;
+    published_at: string | null;
+    updated_at: string;
+    scheduled_at: string | null;
+    auto_repost: boolean | null;
+    destination: { kind: string; id: string | null; ids?: string[] };
+    targets: TargetView[];
+    media: MediaView[];
+    segment_breaks?: string[];
+    placements?: Placement[];
+};
+
+export type ComposePageProps = {
+    post: PostView | null;
+    accounts: Account[];
+    sets: AccountSet[];
+    limits: PlatformLimits[];
+    savedMentions: WorkspaceMention[];
+};

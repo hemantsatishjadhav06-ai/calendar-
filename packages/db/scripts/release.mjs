@@ -68,6 +68,24 @@ async function main() {
 
   await run('schema (0001)', readSql('0001_schema.sql'));
 
+  // Enum values added after the initial release need ALTER TYPE on existing databases (fresh DBs
+  // already have them from 0001's CREATE TYPE). Runs as its own autocommit statement — ADD VALUE
+  // cannot run inside a transaction block on older Postgres. IF NOT EXISTS makes it idempotent.
+  await tryRun('Network enum: DEVTO', `ALTER TYPE "Network" ADD VALUE IF NOT EXISTS 'DEVTO'`);
+  await tryRun('Network enum: DISCORD', `ALTER TYPE "Network" ADD VALUE IF NOT EXISTS 'DISCORD'`);
+
+  // Auto-repost ("boost"): enum type + two Post columns on existing databases (fresh DBs get them
+  // from 0001). CREATE TYPE / ADD COLUMN are idempotent via IF NOT EXISTS / duplicate_object guard.
+  await tryRun('AutoRepost enum', `DO $$ BEGIN CREATE TYPE "AutoRepost" AS ENUM ('OFF', 'ALWAYS', 'SMART'); EXCEPTION WHEN duplicate_object THEN null; END $$`);
+  await tryRun('Post.autoRepost', `ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "autoRepost" "AutoRepost" NOT NULL DEFAULT 'OFF'::"AutoRepost"`);
+  await tryRun('Post.boostedAt', `ALTER TABLE "Post" ADD COLUMN IF NOT EXISTS "boostedAt" timestamp(3)`);
+
+  // Client review-link sign-off columns on Approval (existing DBs; fresh DBs get them from 0001).
+  await tryRun('Approval.clientDecision', `ALTER TABLE "Approval" ADD COLUMN IF NOT EXISTS "clientDecision" text`);
+  await tryRun('Approval.clientDecidedAt', `ALTER TABLE "Approval" ADD COLUMN IF NOT EXISTS "clientDecidedAt" timestamp(3)`);
+  await tryRun('Approval.clientReviewerName', `ALTER TABLE "Approval" ADD COLUMN IF NOT EXISTS "clientReviewerName" text`);
+  await tryRun('Approval.clientComment', `ALTER TABLE "Approval" ADD COLUMN IF NOT EXISTS "clientComment" text`);
+
   await run('grants', `
     GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO relay, relay_vault;
     GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO relay, relay_vault;
