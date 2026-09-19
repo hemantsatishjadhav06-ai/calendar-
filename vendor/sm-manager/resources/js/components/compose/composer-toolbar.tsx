@@ -1,0 +1,329 @@
+import type { ReactNode } from 'react';
+import { useRef } from 'react';
+
+import type { BoostValue } from '@/components/compose/boost-popover';
+import { BoostPopover } from '@/components/compose/boost-popover';
+import { EmojiPopover } from '@/components/compose/emoji-popover';
+import { GifPopover } from '@/components/compose/gif-popover';
+import {
+    ImagePlay,
+    Paperclip,
+    Shuffle,
+    Smile,
+    Split,
+} from '@/components/ui/icons';
+import { Kbd } from '@/components/ui/kbd';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import type { EmojiSkinTone } from '@/lib/compose/emoji/types';
+import { cn } from '@/lib/utils';
+import type {
+    Account,
+    MediaView,
+    PendingUpload,
+    PlatformName,
+    PostFormat,
+} from '@/types/compose';
+import type { GifItem } from '@/types/gifs';
+
+type Props = {
+    /** Active account's platform; undefined on the generic "Post" tab. */
+    activePlatform?: PlatformName;
+    autoSplit: boolean;
+    /** Per-account post format; only meaningful for Instagram & Facebook. */
+    format?: PostFormat;
+    onFormatChange?: (format: PostFormat) => void;
+    overrideActive: boolean;
+    /** When false, hides Override + Auto-split (generic tab has no platform). */
+    showSplitControls?: boolean;
+    /** Attached media — drives the "add media" badge count and accept type. */
+    media: MediaView[];
+    onToggleAutoSplit: () => void;
+    onToggleOverride: () => void;
+    /** Read-only post: show attached media, hide all editing controls. */
+    readOnly?: boolean;
+    /** In-flight uploads (owned by the parent's useMediaUploads). */
+    pending: PendingUpload[];
+    /** Validate + upload a picked/dropped batch. */
+    handleFiles: (files: FileList) => Promise<void>;
+    /**
+     * Per-post Auto-boost control; absent hides the button (read-only, or no
+     * selected account is on a repost-capable platform).
+     */
+    boost?: {
+        value: BoostValue;
+        onChange: (value: BoostValue) => void;
+        accounts: Account[];
+    };
+    /** Insert a chosen emoji at the editor caret. */
+    onInsertEmoji: (emoji: string) => void;
+    /** Recently-used emoji, newest first. */
+    emojiRecents: string[];
+    emojiSkinTone: EmojiSkinTone;
+    onEmojiSkinToneChange: (tone: EmojiSkinTone) => void;
+    /** Attach a chosen GIF. Absent hides the GIF button (read-only, or disabled). */
+    onAttachGif?: (item: GifItem) => void;
+};
+
+export function ComposerToolbar({
+    activePlatform,
+    autoSplit,
+    format = 'feed',
+    onFormatChange,
+    overrideActive,
+    showSplitControls = true,
+    media,
+    onToggleAutoSplit,
+    onToggleOverride,
+    readOnly = false,
+    pending,
+    handleFiles,
+    boost,
+    onInsertEmoji,
+    emojiRecents,
+    emojiSkinTone,
+    onEmojiSkinToneChange,
+    onAttachGif,
+}: Props) {
+    const input = useRef<HTMLInputElement | null>(null);
+
+    // Process a picked/dropped batch, then reset the input so re-picking the same
+    // file fires onChange again.
+    function acceptFiles(files: FileList) {
+        void handleFiles(files).finally(() => {
+            if (input.current) {
+                input.current.value = '';
+            }
+        });
+    }
+
+    const hasVideo = media.some((m) => m.kind === 'video');
+    const showFormatPicker =
+        !readOnly &&
+        onFormatChange !== undefined &&
+        (activePlatform === 'instagram' || activePlatform === 'facebook');
+    const formatOptions: { value: PostFormat; label: string }[] = [
+        { value: 'feed', label: 'Feed' },
+        { value: 'reels', label: 'Reels' },
+        { value: 'story', label: 'Stories' },
+    ];
+    // Count confirmed media plus uploads still in flight so the badge bumps the
+    // instant a file is picked, and settles back if an upload fails. "processing"
+    // (client-side compression) is in flight too, so it counts.
+    const mediaCount =
+        media.length +
+        pending.filter(
+            (p) => p.status === 'uploading' || p.status === 'processing',
+        ).length;
+
+    return (
+        <div
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+                e.preventDefault();
+                if (!readOnly && e.dataTransfer.files.length > 0) {
+                    acceptFiles(e.dataTransfer.files);
+                }
+            }}
+            className="flex flex-wrap items-center gap-1.5 border-t border-border bg-muted/50 px-3 pt-2 pb-2.5 sm:px-[14px]"
+        >
+            {!readOnly && (
+                <EmojiPopover
+                    recents={emojiRecents}
+                    skinTone={emojiSkinTone}
+                    onSkinToneChange={onEmojiSkinToneChange}
+                    onSelect={onInsertEmoji}
+                    align="start"
+                    tooltip="Emoji"
+                    trigger={(open) => (
+                        <button
+                            type="button"
+                            aria-label="Emoji"
+                            data-active={open}
+                            className={cn(
+                                'inline-flex size-8 items-center justify-center rounded-md border border-transparent bg-transparent text-muted-foreground transition-colors sm:size-7',
+                                'hover:border-border hover:bg-background hover:text-foreground',
+                                'data-[active=true]:border-border data-[active=true]:bg-background data-[active=true]:text-foreground data-[active=true]:shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]',
+                            )}
+                        />
+                    )}
+                >
+                    <Smile className="size-4" aria-hidden="true" />
+                </EmojiPopover>
+            )}
+
+            {!readOnly && onAttachGif !== undefined && (
+                <GifPopover
+                    onSelect={onAttachGif}
+                    align="start"
+                    tooltip="GIFs, stickers & clips"
+                    trigger={(open) => (
+                        <button
+                            type="button"
+                            aria-label="GIFs, stickers and clips"
+                            data-active={open}
+                            className={cn(
+                                'inline-flex size-8 items-center justify-center rounded-md border border-transparent bg-transparent text-muted-foreground transition-colors sm:size-7',
+                                'hover:border-border hover:bg-background hover:text-foreground',
+                                'data-[active=true]:border-border data-[active=true]:bg-background data-[active=true]:text-foreground data-[active=true]:shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]',
+                            )}
+                        />
+                    )}
+                >
+                    <ImagePlay className="size-4" aria-hidden="true" />
+                </GifPopover>
+            )}
+
+            {!readOnly && (
+                <>
+                    <input
+                        ref={input}
+                        type="file"
+                        accept={hasVideo ? 'image/*' : 'image/*,video/*'}
+                        multiple
+                        hidden
+                        onChange={(e) => {
+                            if (e.target.files && e.target.files.length > 0) {
+                                acceptFiles(e.target.files);
+                            }
+                        }}
+                    />
+
+                    <EToolButton
+                        iconOnly
+                        label="Add media"
+                        tooltip={
+                            <>
+                                Add media <Kbd>⌘⇧M</Kbd>
+                            </>
+                        }
+                        onClick={() => input.current?.click()}
+                    >
+                        <Paperclip className="size-4" aria-hidden="true" />
+                        {mediaCount > 0 && (
+                            <span className="absolute -top-1 -right-1 min-w-4 rounded-full bg-foreground px-1 py-0.5 font-mono text-[10px] leading-none font-medium text-background tabular-nums">
+                                {mediaCount}
+                            </span>
+                        )}
+                    </EToolButton>
+                </>
+            )}
+
+            <div className="ml-auto sm:flex-1" />
+
+            {showFormatPicker && (
+                <div
+                    role="group"
+                    aria-label="Post format"
+                    className="inline-flex items-center gap-0.5 rounded-md border border-border bg-background p-0.5"
+                >
+                    {formatOptions.map((option) => (
+                        <button
+                            key={option.value}
+                            type="button"
+                            title={`Post as ${option.label}`}
+                            data-active={format === option.value}
+                            onClick={() => onFormatChange?.(option.value)}
+                            className={cn(
+                                'inline-flex h-7 items-center rounded-[5px] px-2.5 text-[12px] text-muted-foreground transition-colors sm:h-6',
+                                'hover:text-foreground',
+                                'data-[active=true]:bg-muted data-[active=true]:text-foreground data-[active=true]:shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]',
+                            )}
+                        >
+                            {option.label}
+                        </button>
+                    ))}
+                </div>
+            )}
+
+            {showSplitControls && !readOnly && (
+                <>
+                    <EToolButton
+                        title={
+                            overrideActive
+                                ? 'Override on for this account — click to discard and re-sync to base'
+                                : 'Override text per account'
+                        }
+                        active={overrideActive}
+                        onClick={onToggleOverride}
+                    >
+                        <Split className="size-3.5" aria-hidden="true" />
+                        <span>
+                            {overrideActive ? 'Override on' : 'Override'}
+                        </span>
+                    </EToolButton>
+                    <EToolButton
+                        title="Auto-split on platform limits"
+                        active={autoSplit}
+                        onClick={onToggleAutoSplit}
+                    >
+                        <Shuffle className="size-3.5" aria-hidden="true" />
+                        <span>Auto-split</span>
+                    </EToolButton>
+                </>
+            )}
+
+            {!readOnly && boost !== undefined && (
+                <BoostPopover
+                    value={boost.value}
+                    onChange={boost.onChange}
+                    accounts={boost.accounts}
+                />
+            )}
+        </div>
+    );
+}
+
+function EToolButton({
+    children,
+    active = false,
+    title,
+    /** Accessible name; required once the button is icon-only. */
+    label,
+    /** Rich hover label. Replaces the native `title` when supplied. */
+    tooltip,
+    iconOnly = false,
+    onClick,
+}: {
+    children: ReactNode;
+    active?: boolean;
+    title?: string;
+    label?: string;
+    tooltip?: ReactNode;
+    iconOnly?: boolean;
+    onClick?: () => void;
+}) {
+    const button = (
+        <button
+            type="button"
+            title={tooltip === undefined ? title : undefined}
+            aria-label={label}
+            onClick={onClick}
+            data-active={active}
+            className={cn(
+                'relative inline-flex items-center rounded-md border border-transparent bg-transparent text-[12px] text-muted-foreground transition-colors',
+                iconOnly
+                    ? 'size-8 justify-center sm:size-7'
+                    : 'h-8 gap-1.5 px-2.5 sm:h-7',
+                'hover:border-border hover:bg-background hover:text-foreground',
+                'data-[active=true]:border-border data-[active=true]:bg-background data-[active=true]:text-foreground data-[active=true]:shadow-[0_1px_2px_0_rgb(0_0_0/0.04)]',
+            )}
+        >
+            {children}
+        </button>
+    );
+
+    if (tooltip === undefined) {
+        return button;
+    }
+
+    return (
+        <Tooltip>
+            <TooltipTrigger render={button} />
+            <TooltipContent side="top">{tooltip}</TooltipContent>
+        </Tooltip>
+    );
+}

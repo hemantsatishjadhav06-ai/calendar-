@@ -1,0 +1,652 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+    createMention,
+    discordMentionLabels,
+    discordMentionMarkup,
+    extractLinkedInOrgRef,
+    hasEmptyActiveHandle,
+    mentionInputValue,
+    mentionToken,
+    normalizeLinkedInUrn,
+    parseDiscordMention,
+    platformSupportsMention,
+    replaceMentionLabel,
+    replaceMentionTokens,
+    savedMentionToPlaceholder,
+    setPlatformMentionMode,
+    updateMentionHandle,
+    updateMentionLinkedInUrn,
+    updateMentionName,
+    syncMentionsFromText,
+    usesPlatformMention,
+    type MentionPlaceholder,
+} from '../mentions';
+
+describe('replaceMentionLabel', () => {
+    it('renames a whole mention token', () => {
+        expect(
+            replaceMentionLabel('hi @guest there', '@guest', '@guest2'),
+        ).toBe('hi @guest2 there');
+        expect(
+            replaceMentionLabel('@guest and @guest', '@guest', '@member'),
+        ).toBe('@member and @member');
+    });
+
+    it('renames the in-progress "@" without rewriting other handles', () => {
+        // Regression: a naive replaceAll("@", "@member") corrupted "@guest".
+        expect(replaceMentionLabel('@guest @', '@', '@member')).toBe(
+            '@guest @member',
+        );
+    });
+
+    it('leaves the label alone when it is only part of a longer token', () => {
+        expect(replaceMentionLabel('@guest', '@', '@member')).toBe('@guest');
+        expect(replaceMentionLabel('email@guest', '@guest', '@member')).toBe(
+            'email@guest',
+        );
+    });
+
+    it('honors trailing boundary punctuation', () => {
+        expect(replaceMentionLabel('hey @guest!', '@guest', '@member')).toBe(
+            'hey @member!',
+        );
+    });
+
+    it('is a no-op for an empty or unchanged label', () => {
+        expect(replaceMentionLabel('@guest', '', '@member')).toBe('@guest');
+        expect(replaceMentionLabel('@guest', '@guest', '@guest')).toBe(
+            '@guest',
+        );
+    });
+});
+
+describe('mention helpers', () => {
+    it('creates mention metadata from a typed handle', () => {
+        const mention = createMention('Guest');
+
+        expect(mention.label).toBe('@Guest');
+        expect(mention.handles).toEqual({
+            x: '@Guest',
+            bluesky: '@Guest',
+            linkedin: 'Guest',
+            facebook: 'Guest',
+            instagram: '@Guest',
+            threads: '@Guest',
+        });
+        expect(mentionToken(mention.id)).toBe(`{{mention:${mention.id}}}`);
+    });
+
+    it('stores a different handle per platform', () => {
+        const mention: MentionPlaceholder = {
+            id: 'guest',
+            label: '@guest',
+            handles: { x: '@old' },
+        };
+
+        const updated = updateMentionHandle(
+            mention,
+            'bluesky',
+            '@guest.bsky.social',
+        );
+
+        expect(updated.handles).toEqual({
+            x: '@old',
+            bluesky: '@guest.bsky.social',
+        });
+    });
+
+    it('preadds @ when a platform handle is typed without it', () => {
+        const mention: MentionPlaceholder = {
+            id: 'guest',
+            label: '@guest',
+            handles: {},
+        };
+
+        expect(updateMentionHandle(mention, 'x', 'guest_x').handles.x).toBe(
+            '@guest_x',
+        );
+    });
+
+    it('keeps an emptied handle blank instead of snapping back to the label', () => {
+        const mention: MentionPlaceholder = {
+            id: 'guest',
+            label: '@guest',
+            handles: { x: '@guest', linkedin: 'Guest' },
+        };
+
+        // Clearing the field stores '' (not a delete), so the input stays blank
+        // rather than falling back to `handles[platform] ?? label`.
+        const cleared = updateMentionHandle(mention, 'linkedin', '', false);
+
+        expect(cleared.handles.linkedin).toBe('');
+        expect(cleared.handles.linkedin ?? cleared.label).toBe('');
+    });
+
+    it('preserves inter-word whitespace while a plain-text name is typed', () => {
+        const mention: MentionPlaceholder = {
+            id: 'acme',
+            label: '@acme',
+            handles: { linkedin: 'Acme' },
+        };
+
+        // Controlled input: trimming here would eat the trailing space between
+        // words and strand "Acme Corp" at "AcmeCorp".
+        const typed = updateMentionHandle(mention, 'linkedin', 'Acme ', false);
+        expect(typed.handles.linkedin).toBe('Acme ');
+
+        const finished = updateMentionHandle(
+            typed,
+            'linkedin',
+            'Acme Corp',
+            false,
+        );
+        expect(finished.handles.linkedin).toBe('Acme Corp');
+    });
+
+    it('flags an empty active handle so saving can be blocked', () => {
+        const filled: MentionPlaceholder = {
+            id: 'guest',
+            label: '@guest',
+            handles: { x: '@guest', linkedin: 'Guest' },
+        };
+        expect(hasEmptyActiveHandle(filled, ['x', 'linkedin'])).toBe(false);
+
+        const cleared = updateMentionHandle(filled, 'linkedin', '', false);
+        expect(hasEmptyActiveHandle(cleared, ['x', 'linkedin'])).toBe(true);
+
+        // An untouched platform falls back to the label, so it is not "empty".
+        const untouched: MentionPlaceholder = {
+            id: 'guest',
+            label: '@guest',
+            handles: {},
+        };
+        expect(hasEmptyActiveHandle(untouched, ['x'])).toBe(false);
+    });
+
+    it('knows which platforms support an @ mention', () => {
+        // Platforms that auto-link a bare @handle offer a mention toggle.
+        expect(platformSupportsMention('x')).toBe(true);
+        expect(platformSupportsMention('bluesky')).toBe(true);
+        expect(platformSupportsMention('instagram')).toBe(true);
+        expect(platformSupportsMention('threads')).toBe(true);
+        // LinkedIn has its own company-tag flow; Facebook's API won't auto-link.
+        expect(platformSupportsMention('linkedin')).toBe(false);
+        expect(platformSupportsMention('facebook')).toBe(false);
+    });
+
+    it('can store plain display text for a platform instead of an @ mention', () => {
+        const mention: MentionPlaceholder = {
+            id: 'guest',
+            label: '@guest',
+            handles: { linkedin: '@guest' },
+        };
+
+        const text = updateMentionHandle(
+            mention,
+            'linkedin',
+            'Guest LinkedIn',
+            false,
+        );
+
+        expect(text.handles.linkedin).toBe('Guest LinkedIn');
+        expect(usesPlatformMention(text, 'linkedin')).toBe(false);
+        expect(
+            replaceMentionTokens('Hi {{mention:guest}}', [text], 'linkedin'),
+        ).toBe('Hi Guest LinkedIn');
+    });
+
+    it('toggles a non-LinkedIn platform between @ mention and display text', () => {
+        const mention: MentionPlaceholder = {
+            id: 'guest',
+            label: '@guest',
+            handles: { x: '@guest' },
+        };
+
+        const text = setPlatformMentionMode(mention, 'x', false);
+        const atMention = setPlatformMentionMode(text, 'x', true);
+
+        expect(text.handles.x).toBe('guest');
+        expect(atMention.handles.x).toBe('@guest');
+    });
+
+    it('keeps generated LinkedIn text in sync while the mention name changes', () => {
+        const mention: MentionPlaceholder = {
+            id: 'm',
+            label: '@m',
+            handles: {
+                x: '@m',
+                bluesky: '@m',
+                linkedin: 'm',
+            },
+        };
+
+        const updated = updateMentionName(mention, 'misterfdsfsfds');
+
+        expect(updated.handles).toEqual({
+            x: '@misterfdsfsfds',
+            bluesky: '@misterfdsfsfds',
+            linkedin: 'misterfdsfsfds',
+        });
+    });
+
+    it('preserves linkedin_urn when renaming even if it matches the label', () => {
+        const mention: MentionPlaceholder = {
+            id: 'coolify',
+            label: '@coolify',
+            handles: {
+                x: '@coolify',
+                linkedin: 'coolify',
+                linkedin_urn: 'coolify',
+            },
+        };
+
+        const updated = updateMentionName(mention, 'coolify-labs');
+
+        expect(updated.handles.x).toBe('@coolify-labs');
+        expect(updated.handles.linkedin).toBe('coolify-labs');
+        expect(updated.handles.linkedin_urn).toBe('coolify');
+    });
+
+    it('forces LinkedIn values to text only', () => {
+        const mention: MentionPlaceholder = {
+            id: 'guest',
+            label: '@guest',
+            handles: { linkedin: '@guest' },
+        };
+
+        const updated = updateMentionHandle(
+            mention,
+            'linkedin',
+            '@guest',
+            true,
+        );
+        const toggled = setPlatformMentionMode(updated, 'linkedin', true);
+
+        expect(updated.handles.linkedin).toBe('guest');
+        expect(toggled.handles.linkedin).toBe('guest');
+        expect(usesPlatformMention(toggled, 'linkedin')).toBe(false);
+    });
+
+    it('shows mention inputs without the permanent @ prefix', () => {
+        expect(mentionInputValue('@guest')).toBe('guest');
+        expect(mentionInputValue('guest')).toBe('guest');
+    });
+
+    it('replaces tokens with the active platform handle when publishing text is prepared', () => {
+        const mentions: MentionPlaceholder[] = [
+            {
+                id: 'guest',
+                label: '@guest',
+                handles: { x: '@guest_x', linkedin: '@GuestLinkedIn' },
+            },
+        ];
+
+        expect(
+            replaceMentionTokens('Hi {{mention:guest}}', mentions, 'x'),
+        ).toBe('Hi @guest_x');
+        expect(
+            replaceMentionTokens('Hi {{mention:guest}}', mentions, 'linkedin'),
+        ).toBe('Hi GuestLinkedIn');
+    });
+});
+
+describe('syncMentionsFromText', () => {
+    it('creates mention metadata when a handle is typed in the text', () => {
+        const mentions = syncMentionsFromText('Hello @guest', []);
+
+        expect(mentions).toEqual([
+            {
+                id: 'guest',
+                label: '@guest',
+                handles: {
+                    x: '@guest',
+                    bluesky: '@guest',
+                    linkedin: 'guest',
+                    facebook: 'guest',
+                    instagram: '@guest',
+                    threads: '@guest',
+                },
+            },
+        ]);
+    });
+
+    it('creates mention metadata as soon as @ is typed', () => {
+        const mentions = syncMentionsFromText('Hello @', []);
+
+        expect(mentions).toEqual([
+            {
+                id: expect.any(String),
+                label: '@',
+                handles: {
+                    x: '@',
+                    bluesky: '@',
+                    linkedin: '',
+                    facebook: '',
+                    instagram: '@',
+                    threads: '@',
+                },
+            },
+        ]);
+    });
+
+    it('turns a just-opened @ mention into the typed handle', () => {
+        const [mention] = syncMentionsFromText('Hello @', []);
+        const mentions = syncMentionsFromText('Hello @guest', [mention]);
+
+        expect(mentions).toEqual([
+            {
+                id: 'guest',
+                label: '@guest',
+                handles: {
+                    x: '@guest',
+                    bluesky: '@guest',
+                    linkedin: 'guest',
+                    facebook: 'guest',
+                    instagram: '@guest',
+                    threads: '@guest',
+                },
+            },
+        ]);
+    });
+
+    it('removes mention metadata when the handle is deleted from the text', () => {
+        const mentions = syncMentionsFromText('Hello there', [
+            {
+                id: 'guest',
+                label: '@guest',
+                handles: { x: '@guest_x' },
+            },
+        ]);
+
+        expect(mentions).toEqual([]);
+    });
+
+    it('keeps custom platform handles when a typed mention is still present', () => {
+        const mentions = syncMentionsFromText('Hello @guest', [
+            {
+                id: 'guest',
+                label: '@guest',
+                handles: { x: '@guest_x', bluesky: '@guest.bsky.social' },
+            },
+        ]);
+
+        expect(mentions[0].handles).toEqual({
+            x: '@guest_x',
+            bluesky: '@guest.bsky.social',
+        });
+    });
+});
+
+describe('linkedin org reference', () => {
+    it('carries linkedin_urn through the saved-mention round-trip', () => {
+        const placeholder = savedMentionToPlaceholder({
+            id: 'acme-id',
+            name: '@acme',
+            handles: {
+                linkedin: 'Acme Corp',
+                linkedin_urn: 'https://www.linkedin.com/company/acme/',
+            },
+        });
+
+        expect(placeholder.handles.linkedin_urn).toBe(
+            'https://www.linkedin.com/company/acme/',
+        );
+        // Serializing (as save/autosave payloads do) preserves the key.
+        expect(JSON.parse(JSON.stringify(placeholder.handles))).toEqual({
+            linkedin: 'Acme Corp',
+            linkedin_urn: 'https://www.linkedin.com/company/acme/',
+        });
+    });
+
+    it('leaves the LinkedIn preview output as the plain display name', () => {
+        const mention = savedMentionToPlaceholder({
+            id: 'acme-id',
+            name: '@acme',
+            handles: {
+                linkedin: 'Acme Corp',
+                linkedin_urn: 'urn:li:organization:123',
+            },
+        });
+
+        expect(
+            replaceMentionTokens('Hi {{mention:acme}}', [mention], 'linkedin'),
+        ).toBe('Hi Acme Corp');
+    });
+
+    it('sets a trimmed linkedin_urn and clears it when emptied', () => {
+        const mention: MentionPlaceholder = {
+            id: 'acme',
+            label: '@acme',
+            handles: { linkedin: 'Acme Corp' },
+        };
+
+        const withUrn = updateMentionLinkedInUrn(
+            mention,
+            '  urn:li:organization:123  ',
+        );
+        expect(withUrn.handles.linkedin_urn).toBe('urn:li:organization:123');
+        expect(withUrn.handles.linkedin).toBe('Acme Corp');
+
+        const cleared = updateMentionLinkedInUrn(withUrn, '   ');
+        expect(cleared.handles.linkedin_urn).toBeUndefined();
+    });
+});
+
+describe('normalizeLinkedInUrn', () => {
+    it('passes a canonical org urn through unchanged', () => {
+        expect(normalizeLinkedInUrn('urn:li:organization:12345')).toBe(
+            'urn:li:organization:12345',
+        );
+        expect(normalizeLinkedInUrn('  urn:li:organization:12345  ')).toBe(
+            'urn:li:organization:12345',
+        );
+    });
+
+    it('coerces a bare numeric id into a urn', () => {
+        expect(normalizeLinkedInUrn('12345')).toBe('urn:li:organization:12345');
+    });
+
+    it('coerces a numeric company URL into a urn', () => {
+        expect(
+            normalizeLinkedInUrn('https://www.linkedin.com/company/12345/'),
+        ).toBe('urn:li:organization:12345');
+    });
+
+    it('cannot resolve a vanity company URL and returns null', () => {
+        expect(
+            normalizeLinkedInUrn('https://www.linkedin.com/company/coolify'),
+        ).toBeNull();
+    });
+
+    it('returns null for garbage or empty input', () => {
+        expect(normalizeLinkedInUrn('not a reference')).toBeNull();
+        expect(normalizeLinkedInUrn('   ')).toBeNull();
+    });
+});
+
+describe('extractLinkedInOrgRef', () => {
+    it('pulls a urn token out and leaves the display name in rest', () => {
+        expect(
+            extractLinkedInOrgRef('Acme Corp urn:li:organization:123'),
+        ).toEqual({
+            urn: 'urn:li:organization:123',
+            vanity: null,
+            rest: 'Acme Corp',
+        });
+    });
+
+    it('pulls a numeric company URL out and normalizes it to a urn', () => {
+        expect(
+            extractLinkedInOrgRef(
+                'Acme https://www.linkedin.com/company/123/ team',
+            ),
+        ).toEqual({
+            urn: 'urn:li:organization:123',
+            vanity: null,
+            rest: 'Acme team',
+        });
+    });
+
+    it('reports a vanity slug when the company URL has no numeric id', () => {
+        expect(
+            extractLinkedInOrgRef('Coolify linkedin.com/company/coolify'),
+        ).toEqual({
+            urn: null,
+            vanity: 'coolify',
+            rest: 'Coolify',
+        });
+    });
+
+    it('leaves plain display text untouched with no reference', () => {
+        expect(extractLinkedInOrgRef('Acme Corp')).toEqual({
+            urn: null,
+            vanity: null,
+            rest: 'Acme Corp',
+        });
+    });
+
+    it('does not treat a bare number typed as a name as a urn', () => {
+        expect(extractLinkedInOrgRef('12345')).toEqual({
+            urn: null,
+            vanity: null,
+            rest: '12345',
+        });
+    });
+
+    it('composes into a tag-mode change that sets the urn and keeps the name', () => {
+        // Mirrors LinkedInMentionField.handleChange in tag mode.
+        const mention: MentionPlaceholder = {
+            id: 'acme',
+            label: '@acme',
+            handles: { linkedin: 'Acme Corp' },
+        };
+
+        const { urn, rest } = extractLinkedInOrgRef(
+            'Acme Corp https://www.linkedin.com/company/123/',
+        );
+        let next = updateMentionHandle(mention, 'linkedin', rest, false);
+        if (urn) {
+            next = updateMentionLinkedInUrn(next, urn);
+        }
+
+        expect(next.handles.linkedin).toBe('Acme Corp');
+        expect(next.handles.linkedin_urn).toBe('urn:li:organization:123');
+    });
+});
+
+describe('discord mentions', () => {
+    it('composes native markup per kind', () => {
+        expect(discordMentionMarkup('user', '123')).toBe('<@123>');
+        expect(discordMentionMarkup('role', '456')).toBe('<@&456>');
+        expect(discordMentionMarkup('channel', '789')).toBe('<#789>');
+        expect(discordMentionMarkup('user', '  123  ')).toBe('<@123>');
+    });
+
+    it('returns empty markup for a blank id so the label is used', () => {
+        expect(discordMentionMarkup('user', '')).toBe('');
+        expect(discordMentionMarkup('role', '   ')).toBe('');
+    });
+
+    it('parses stored markup back into a kind and id', () => {
+        expect(parseDiscordMention('<@123>')).toEqual({
+            kind: 'user',
+            id: '123',
+        });
+        expect(parseDiscordMention('<@&456>')).toEqual({
+            kind: 'role',
+            id: '456',
+        });
+        expect(parseDiscordMention('<#789>')).toEqual({
+            kind: 'channel',
+            id: '789',
+        });
+        // Legacy nickname form collapses to a plain user mention.
+        expect(parseDiscordMention('<@!123>')).toEqual({
+            kind: 'user',
+            id: '123',
+        });
+    });
+
+    it('treats plain display text as not an id mention', () => {
+        expect(parseDiscordMention('Guest')).toBeNull();
+        expect(parseDiscordMention('')).toBeNull();
+        expect(parseDiscordMention(undefined)).toBeNull();
+        expect(parseDiscordMention('<@abc>')).toBeNull();
+    });
+
+    it('round-trips composed markup through parse', () => {
+        const markup = discordMentionMarkup('role', '42');
+        expect(parseDiscordMention(markup)).toEqual({ kind: 'role', id: '42' });
+    });
+
+    it('emits the stored Discord markup verbatim at publish time', () => {
+        const mention: MentionPlaceholder = {
+            id: 'guest',
+            label: '@guest',
+            handles: { discord: '<@&123>' },
+        };
+
+        expect(
+            replaceMentionTokens(
+                'Ping {{mention:guest}}',
+                [mention],
+                'discord',
+            ),
+        ).toBe('Ping <@&123>');
+    });
+
+    it('falls back to the label when no Discord handle is set', () => {
+        const mention: MentionPlaceholder = {
+            id: 'guest',
+            label: '@guest',
+            handles: { x: '@guest_x' },
+        };
+
+        expect(
+            replaceMentionTokens(
+                'Ping {{mention:guest}}',
+                [mention],
+                'discord',
+            ),
+        ).toBe('Ping @guest');
+    });
+
+    it('builds a snowflake-id → label map for rendering resolved markup', () => {
+        const mentions: MentionPlaceholder[] = [
+            { id: 'a', label: '@adiology', handles: { discord: '<@1>' } },
+            { id: 'm', label: '@mods', handles: { discord: '<@&2>' } },
+            // Non-Discord and plain-text handles contribute nothing to the map.
+            { id: 'x', label: '@xonly', handles: { x: '@xonly' } },
+        ];
+
+        expect(discordMentionLabels(mentions)).toEqual({
+            '1': '@adiology',
+            '2': '@mods',
+        });
+    });
+});
+
+describe('saved workspace mentions', () => {
+    it('uses saved handles when a typed mention name matches', () => {
+        const mentions = syncMentionsFromText(
+            'Hello @saved',
+            [],
+            [
+                {
+                    id: 'saved-id',
+                    name: '@saved',
+                    handles: { x: '@saved_x' },
+                },
+            ],
+        );
+
+        expect(mentions).toEqual([
+            {
+                id: 'saved',
+                label: '@saved',
+                handles: { x: '@saved_x' },
+            },
+        ]);
+    });
+});

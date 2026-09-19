@@ -1,0 +1,466 @@
+@import 'tailwindcss';
+
+@import 'tw-animate-css';
+
+@import 'shadcn/tailwind.css';
+
+@import '@fontsource-variable/noto-sans';
+
+@source '../views';
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+    --font-sans:
+        'Noto Sans Variable', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+        'Noto Color Emoji';
+
+    /* Editorial display face for public/marketing surfaces (e.g. share page).
+       Falls back to a system serif; upgrades to Fraunces if that font is added. */
+    --font-display:
+        'Fraunces Variable', ui-serif, Georgia, 'Times New Roman', serif;
+
+    --radius-lg: var(--radius);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-sm: calc(var(--radius) - 4px);
+
+    /* Drifting blobs + rotating sheen for the decorative dashboard aura. */
+    --animate-aura-a: aura-a 14s ease-in-out infinite;
+    --animate-aura-b: aura-b 18s ease-in-out infinite;
+    --animate-aura-spin: aura-spin 32s linear infinite;
+
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+
+    --color-destructive: var(--destructive);
+    --color-destructive-foreground: var(--destructive-foreground);
+
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.841 0.238 128.85);
+    --primary-foreground: oklch(0.405 0.101 131.063);
+    --secondary: oklch(0.967 0.001 286.375);
+    --secondary-foreground: oklch(0.21 0.006 285.885);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --destructive-foreground: oklch(0.577 0.245 27.325);
+    --success: oklch(0.55 0.14 155);
+    --warning: oklch(0.6 0.15 70);
+    --info: oklch(0.55 0.16 255);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.837 0.128 66.29);
+    --chart-2: oklch(0.705 0.213 47.604);
+    --chart-3: oklch(0.646 0.222 41.116);
+    --chart-4: oklch(0.553 0.195 38.402);
+    --chart-5: oklch(0.47 0.157 37.304);
+    /* Emphasis gradient, derived from --primary (Kumo's token-derived treatment):
+       a light-to-brand vertical wash, a 1px inset top highlight and a darker edge.
+
+       The mix percentages are ~2x Kumo's. Kumo is tuned for Cloudflare orange
+       (L=0.68), where +15% white travels 0.048 in lightness. Our lime sits at
+       L=0.84, so an identical +15% travels only 0.024 — half the effect — and
+       reads as flat until hover. Keep these calibrated to the *travel*, not to
+       Kumo's literal numbers, if --primary ever changes.
+
+       Declared only here: .dark redefines --primary on the same element (<html>),
+       so these re-resolve per theme on their own and must NOT be copied into
+       .dark. */
+    --primary-gradient-from: color-mix(in oklch, var(--primary), white 30%);
+    --primary-gradient-to: var(--primary);
+    --primary-gradient-highlight: color-mix(
+        in oklch,
+        var(--primary),
+        white 45%
+    );
+    --primary-gradient-edge: color-mix(in oklch, var(--primary), black 12%);
+    /* Categorical account-line palette — distinct hues assigned in fixed order,
+       validated colorblind-safe for the light card surface (dataviz method). */
+    --account-1: #2a78d6;
+    --account-2: #eb6834;
+    --account-3: #1baf7a;
+    --account-4: #eda100;
+    --account-5: #e87ba4;
+    --account-6: #008300;
+    --account-7: #4a3aa7;
+    --account-8: #e34948;
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.648 0.2 131.684);
+    --sidebar-primary-foreground: oklch(0.986 0.031 120.757);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.768 0.233 130.85);
+    --primary-foreground: oklch(0.405 0.101 131.063);
+    --secondary: oklch(0.274 0.006 286.033);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --destructive-foreground: oklch(0.637 0.237 25.331);
+    --success: oklch(0.75 0.15 155);
+    --warning: oklch(0.78 0.14 70);
+    --info: oklch(0.72 0.14 255);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.837 0.128 66.29);
+    --chart-2: oklch(0.705 0.213 47.604);
+    --chart-3: oklch(0.646 0.222 41.116);
+    --chart-4: oklch(0.553 0.195 38.402);
+    --chart-5: oklch(0.47 0.157 37.304);
+    /* Same eight hues, re-stepped for the dark card surface. */
+    --account-1: #3987e5;
+    --account-2: #d95926;
+    --account-3: #199e70;
+    --account-4: #c98500;
+    --account-5: #d55181;
+    --account-6: #008300;
+    --account-7: #9085e9;
+    --account-8: #e66767;
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.768 0.233 130.85);
+    --sidebar-primary-foreground: oklch(0.274 0.072 132.109);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+}
+
+/* Registered so hover can animate. A gradient in background-image is not an
+   interpolatable value, and an *unregistered* custom property changes discretely,
+   so either route would snap. Registering the top stop as a real <color> lets the
+   browser tween it and repaint the gradient each frame.
+
+   Two consequences, both verified in Chromium and easy to regress:
+   1. `transition-property: all` does NOT cover custom properties. Call sites must
+      name --primary-gradient-top explicitly, e.g. transition-[all,--primary-gradient-top].
+   2. A registered property always has a computed value, so it is never
+      "guaranteed-invalid" and a var() fallback on it can never fire. The utility
+      below therefore assigns the resting stop outright instead of relying on
+      var(--primary-gradient-top, …). */
+@property --primary-gradient-top {
+    syntax: '<color>';
+    inherits: false;
+    initial-value: transparent;
+}
+
+/* Single definition of the emphasis wash, shared by every filled-primary surface
+   (buttons, badges, the switch track, chat bubbles, calendar chips). Only the
+   background is set here so it composes with each call site's own border, shadow
+   and radius. --primary-gradient-top is an indirection hook: set it in a variant
+   (e.g. hover) to move the top stop without restating the whole gradient. */
+@utility bg-primary-gradient {
+    --primary-gradient-top: var(--primary-gradient-from);
+    background-color: var(--primary);
+    background-image: linear-gradient(
+        to bottom,
+        var(--primary-gradient-top),
+        var(--primary-gradient-to)
+    );
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+    }
+
+    html {
+        @apply font-sans;
+    }
+}
+
+/* Editor body paragraph spacing (no @tailwindcss/typography in this project). */
+.ProseMirror p {
+    margin: 0;
+}
+.ProseMirror p + p {
+    margin-top: 0.85em;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    color: var(--muted-foreground);
+    pointer-events: none;
+    height: 0;
+}
+
+/* Composer section-break widget decorations rendered by SectionMarkers extension. */
+/* Per-segment media row anchor: a block the SegmentMediaAnchors plugin drops at
+   each segment's end so its media row sits just above the division line. Hidden
+   when the portaled row renders nothing (e.g. a read-only segment with no
+   media). */
+.ProseMirror .segment-media-anchor {
+    display: block;
+    user-select: none;
+    margin-top: 0.25rem;
+}
+.ProseMirror .segment-media-anchor:empty {
+    display: none;
+    margin-top: 0;
+}
+.ProseMirror .section-marker {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.875rem 0 1.125rem 0;
+    user-select: none;
+}
+.ProseMirror .section-marker .sm-rule {
+    flex: 1 1 0;
+    height: 1px;
+    background: linear-gradient(
+        to right,
+        transparent,
+        var(--border),
+        var(--border)
+    );
+}
+.ProseMirror .section-marker .sm-rule:last-child {
+    background: linear-gradient(
+        to left,
+        transparent,
+        var(--border),
+        var(--border)
+    );
+}
+.ProseMirror .section-marker .sm-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.18rem 0.56rem;
+    border: 1px solid var(--border);
+    border-radius: 9999px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10.5px;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted-foreground);
+    background: var(--background);
+    box-shadow: 0 1px 0 rgb(0 0 0 / 0.02);
+    transition:
+        color 150ms ease,
+        background-color 150ms ease,
+        border-color 150ms ease;
+}
+.ProseMirror .section-marker .sm-num {
+    font-weight: 500;
+    color: var(--foreground);
+}
+.ProseMirror .section-marker .sm-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: color-mix(in oklch, var(--muted-foreground) 50%, transparent);
+}
+.ProseMirror .section-marker[data-state='warn'] .sm-chip {
+    border-color: color-mix(in oklch, var(--warning) 40%, var(--border));
+    background: color-mix(in oklch, var(--warning) 12%, var(--background));
+    color: var(--warning);
+}
+.ProseMirror .section-marker[data-state='warn'] .sm-num {
+    color: color-mix(in oklch, var(--warning) 80%, black);
+}
+.ProseMirror .section-marker[data-state='over'] .sm-chip {
+    border-color: color-mix(in oklch, var(--destructive) 35%, var(--border));
+    background: color-mix(in oklch, var(--destructive) 12%, var(--background));
+    color: var(--destructive);
+}
+.ProseMirror .section-marker[data-state='over'] .sm-num {
+    color: var(--destructive);
+}
+
+/* Toast intent color. Three things the code can't tell you: sonner owns
+   ::before and ::after on the toast (swipe hit-area, stack gap-fill), so the
+   rail is a border; the long selector is what outranks sonner's own
+   `border: 1px`; and the transparent default must stay on a weaker selector
+   than the per-intent rules, or it wins and every rail goes invisible. */
+.cn-toast {
+    --toast-accent: transparent;
+}
+
+.cn-toast[data-type='success'] {
+    --toast-accent: var(--success);
+}
+.cn-toast[data-type='error'] {
+    --toast-accent: var(--destructive);
+}
+.cn-toast[data-type='warning'] {
+    --toast-accent: var(--warning);
+}
+.cn-toast[data-type='info'] {
+    --toast-accent: var(--info);
+}
+.cn-toast[data-type='loading'] {
+    --toast-accent: var(--muted-foreground);
+}
+
+[data-sonner-toast][data-styled='true'].cn-toast {
+    border-inline-start-width: 3px;
+    border-inline-start-color: var(--toast-accent);
+}
+
+[data-sonner-toast][data-styled='true'].cn-toast [data-icon] {
+    color: var(--toast-accent);
+}
+
+@theme inline {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Noto Sans Variable', sans-serif;
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-success: var(--success);
+    --color-warning: var(--warning);
+    --color-info: var(--info);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* Decorative dashboard aura: blobs drift + scale + rotate on slow loops, with a
+   rotating conic sheen behind them. Movement is deliberately large so it reads
+   through the heavy blur. */
+@keyframes aura-a {
+    0%,
+    100% {
+        transform: translate3d(-16%, -12%, 0) scale(1) rotate(0deg);
+    }
+    50% {
+        transform: translate3d(22%, 16%, 0) scale(1.4) rotate(28deg);
+    }
+}
+
+@keyframes aura-b {
+    0%,
+    100% {
+        transform: translate3d(16%, 10%, 0) scale(1.2) rotate(0deg);
+    }
+    50% {
+        transform: translate3d(-20%, -16%, 0) scale(0.85) rotate(-32deg);
+    }
+}
+
+@keyframes aura-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* SVG fractal-noise grain that gives the gradient some tactile texture. */
+.aura-grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 160px 160px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-aura-a,
+    .animate-aura-b,
+    .animate-aura-spin {
+        animation: none !important;
+    }
+}
+
+/* Kept-warm popovers (the emoji picker, marked `data-keep-warm`) stay mounted
+   via Portal `keepMounted` while closed to avoid a heavy remount on reopen. The
+   Base UI Positioner that wraps them is made click-through while closed inline
+   (`data-closed:pointer-events-none`), so no global rule is needed here. */

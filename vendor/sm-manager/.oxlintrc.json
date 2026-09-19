@@ -1,0 +1,29 @@
+{
+    "$schema": "./node_modules/oxlint/configuration_schema.json",
+    "plugins": ["react", "typescript", "import"],
+    "options": {
+        "typeAware": true
+    },
+    "categories": {
+        "correctness": "error"
+    },
+    "env": {
+        "browser": true,
+        "node": true
+    },
+    "rules": {
+        "react/react-in-jsx-scope": "off",
+        "react/no-unescaped-entities": "off",
+        "typescript/consistent-type-imports": "error"
+    },
+    "ignorePatterns": [
+        "vendor",
+        "node_modules",
+        "public",
+        "bootstrap/ssr",
+        "resources/js/actions/**",
+        "resources/js/components/ui/*",
+        "resources/js/routes/**",
+        "resources/js/wayfinder/**"
+    ]
+}

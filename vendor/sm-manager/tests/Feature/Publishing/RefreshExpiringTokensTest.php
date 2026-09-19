@@ -1,0 +1,164 @@
+<?php
+
+use App\Enums\ConnectedAccountStatus;
+use App\Enums\Platform;
+use App\Models\ConnectedAccount;
+use App\Models\ConnectedAccountSecret;
+use App\Services\Atproto\DPoP;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Http;
+
+test('it proactively refreshes accounts expiring within six hours', function () {
+    $account = ConnectedAccount::factory()->create([
+        'platform' => Platform::X->value,
+        'token_expires_at' => now()->addHours(5),
+    ]);
+    ConnectedAccountSecret::factory()->create([
+        'connected_account_id' => $account->id,
+        'refresh_token' => 'r',
+    ]);
+
+    Http::fake([
+        'https://api.twitter.com/2/oauth2/token' => Http::response(['access_token' => 'fresh', 'expires_in' => 7200]),
+    ]);
+
+    $this->artisan('accounts:refresh-tokens')->assertExitCode(0);
+
+    expect($account->fresh()->secret->access_token)->toBe('fresh')
+        ->and($account->fresh()->refresh_failed_at)->toBeNull()
+        ->and($account->fresh()->refresh_failure_reason)->toBeNull();
+});
+
+test('it flips status to needs attention on refresh failure and keeps going', function () {
+    $account = ConnectedAccount::factory()->create([
+        'platform' => Platform::X->value,
+        'token_expires_at' => now()->addMinutes(5),
+    ]);
+    ConnectedAccountSecret::factory()->create(['connected_account_id' => $account->id, 'refresh_token' => 'r']);
+
+    Http::fake(['https://api.twitter.com/2/oauth2/token' => Http::response([], 400)]);
+
+    $this->artisan('accounts:refresh-tokens')->assertExitCode(0);
+
+    expect($account->fresh()->status)->toBe(ConnectedAccountStatus::NeedsAttention)
+        ->and($account->fresh()->refresh_failed_at)->not->toBeNull()
+        ->and($account->fresh()->refresh_failure_reason)->toContain('400');
+});
+
+test('it keeps the account active on a transient 503 without reporting', function () {
+    $account = ConnectedAccount::factory()->create([
+        'platform' => Platform::X->value,
+        'token_expires_at' => now()->addMinutes(5),
+    ]);
+    ConnectedAccountSecret::factory()->create(['connected_account_id' => $account->id, 'refresh_token' => 'r']);
+
+    Http::fake(['https://api.twitter.com/2/oauth2/token' => Http::response([], 503)]);
+
+    $this->artisan('accounts:refresh-tokens')->assertExitCode(0);
+
+    expect($account->fresh()->status)->toBe(ConnectedAccountStatus::Active)
+        ->and($account->fresh()->refresh_failed_at)->toBeNull()
+        ->and($account->fresh()->refresh_failure_reason)->toBeNull();
+});
+
+test('it keeps the account active on a transient 429 without reporting', function () {
+    $account = ConnectedAccount::factory()->create([
+        'platform' => Platform::X->value,
+        'token_expires_at' => now()->addMinutes(5),
+    ]);
+    ConnectedAccountSecret::factory()->create(['connected_account_id' => $account->id, 'refresh_token' => 'r']);
+
+    Http::fake(['https://api.twitter.com/2/oauth2/token' => Http::response([], 429)]);
+
+    $this->artisan('accounts:refresh-tokens')->assertExitCode(0);
+
+    expect($account->fresh()->status)->toBe(ConnectedAccountStatus::Active)
+        ->and($account->fresh()->refresh_failed_at)->toBeNull();
+});
+
+test('a connection timeout keeps the account active and does not abort the sweep', function () {
+    $failing = ConnectedAccount::factory()->create([
+        'platform' => Platform::X->value,
+        'token_expires_at' => now()->addMinutes(5),
+    ]);
+    ConnectedAccountSecret::factory()->create(['connected_account_id' => $failing->id, 'refresh_token' => 'timeout-token']);
+
+    $healthy = ConnectedAccount::factory()->create([
+        'platform' => Platform::X->value,
+        'token_expires_at' => now()->addMinutes(10),
+    ]);
+    ConnectedAccountSecret::factory()->create(['connected_account_id' => $healthy->id, 'refresh_token' => 'healthy-token']);
+
+    Http::fake(['https://api.twitter.com/2/oauth2/token' => function ($request) {
+        if ($request['refresh_token'] === 'timeout-token') {
+            throw new ConnectionException('cURL error 28: Operation timed out');
+        }
+
+        return Http::response(['access_token' => 'fresh', 'expires_in' => 7200]);
+    }]);
+
+    $this->artisan('accounts:refresh-tokens')->assertExitCode(0);
+
+    expect($failing->fresh()->status)->toBe(ConnectedAccountStatus::Active)
+        ->and($failing->fresh()->refresh_failed_at)->toBeNull()
+        ->and($healthy->fresh()->secret->access_token)->toBe('fresh');
+});
+
+test('it skips accounts that expire outside the proactive refresh window', function () {
+    ConnectedAccount::factory()->create([
+        'platform' => Platform::X->value,
+        'token_expires_at' => now()->addHours(7),
+    ])->secret()->create([
+        'access_token' => 'still-good',
+        'refresh_token' => 'r',
+    ]);
+
+    Http::fake([
+        'https://api.twitter.com/2/oauth2/token' => Http::response(['access_token' => 'fresh', 'expires_in' => 7200]),
+    ]);
+
+    $this->artisan('accounts:refresh-tokens')->assertExitCode(0);
+
+    Http::assertNothingSent();
+});
+
+test('it does not proactively rotate bluesky oauth accounts', function () {
+    // Bluesky is excluded from the sweep; the JIT path rotates its single-use token.
+    $key = app(DPoP::class)->generateKey();
+    $account = ConnectedAccount::factory()->create([
+        'platform' => Platform::Bluesky->value,
+        'auth_method' => 'oauth',
+        'token_expires_at' => now()->addHours(5),
+    ]);
+    ConnectedAccountSecret::factory()->create([
+        'connected_account_id' => $account->id,
+        'access_token' => 'old-access',
+        'refresh_token' => 'old-refresh',
+        'session' => [
+            'token_endpoint' => 'https://auth.bsky.test/oauth/token',
+            'client_id' => 'https://app.test/oauth/bluesky/client-metadata.json',
+            'dpop_private_jwk' => $key,
+        ],
+    ]);
+
+    Http::fake([
+        'https://auth.bsky.test/oauth/token' => Http::response([
+            'access_token' => 'fresh-access',
+            'refresh_token' => 'fresh-refresh',
+            'expires_in' => 3600,
+        ], 200, ['DPoP-Nonce' => 'fresh-nonce']),
+    ]);
+
+    $this->artisan('accounts:refresh-tokens')->assertExitCode(0);
+
+    // The single-use token is left untouched — no rotation request was sent.
+    Http::assertNothingSent();
+    $account->refresh();
+    expect($account->secret->access_token)->toBe('old-access')
+        ->and($account->secret->refresh_token)->toBe('old-refresh');
+});
+
+test('token refresh health check is scheduled every fifteen minutes', function () {
+    expect(file_get_contents(base_path('routes/console.php')))
+        ->toContain('Schedule::command(RefreshExpiringTokens::class)->everyFifteenMinutes()->withoutOverlapping();');
+});

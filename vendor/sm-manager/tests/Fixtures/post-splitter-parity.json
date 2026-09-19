@@ -1,0 +1,62 @@
+[
+    {
+        "name": "single short post stays whole",
+        "platform": "x",
+        "limit": 280,
+        "paragraphs": [{ "char": "a", "len": 50 }],
+        "expected": [[0]]
+    },
+    {
+        "name": "two paragraphs that overflow thread into separate sections",
+        "platform": "x",
+        "limit": 280,
+        "paragraphs": [
+            { "char": "a", "len": 180 },
+            { "char": "b", "len": 180 }
+        ],
+        "expected": [[0], [1]]
+    },
+    {
+        "name": "greedy packs two paragraphs then threads the third",
+        "platform": "x",
+        "limit": 280,
+        "paragraphs": [
+            { "char": "a", "len": 120 },
+            { "char": "b", "len": 120 },
+            { "char": "c", "len": 120 }
+        ],
+        "expected": [[0, 1], [2]]
+    },
+    {
+        "name": "packs as many whole paragraphs as fit before breaking",
+        "platform": "x",
+        "limit": 280,
+        "paragraphs": [
+            { "char": "a", "len": 90 },
+            { "char": "b", "len": 90 },
+            { "char": "c", "len": 90 },
+            { "char": "d", "len": 90 }
+        ],
+        "expected": [[0, 1, 2], [3]]
+    },
+    {
+        "name": "bluesky packs two paragraphs that fit together",
+        "platform": "bluesky",
+        "limit": 300,
+        "paragraphs": [
+            { "char": "a", "len": 140 },
+            { "char": "b", "len": 140 }
+        ],
+        "expected": [[0, 1]]
+    },
+    {
+        "name": "bluesky threads two paragraphs that overflow",
+        "platform": "bluesky",
+        "limit": 300,
+        "paragraphs": [
+            { "char": "a", "len": 200 },
+            { "char": "b", "len": 200 }
+        ],
+        "expected": [[0], [1]]
+    }
+]

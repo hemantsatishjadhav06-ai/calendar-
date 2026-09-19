@@ -1,0 +1,494 @@
+import { useHttp, usePage } from '@inertiajs/react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
+
+import { ImageEditor } from '@/components/compose/image-editor';
+import { MediaChips } from '@/components/compose/media-chips';
+import { useMediaUploads } from '@/hooks/compose/use-media-uploads';
+import { postGifAttachment } from '@/lib/compose/gifs/attach';
+import {
+    isAttachOnlyImage,
+    wouldMixVideoAndImages,
+    wouldViolateBlueskyGif,
+} from '@/lib/compose/media-rules';
+import {
+    defaultSettings,
+    type EditSettings,
+    normalizeSettings,
+} from '@/lib/image-editor/settings';
+import type { MediaView, PlatformName } from '@/types/compose';
+import type { GifItem } from '@/types/gifs';
+
+/** What the image editor is currently working on. */
+type Editing =
+    | {
+          kind: 'batch';
+          items: { file: File; url: string }[];
+          index: number;
+      }
+    | {
+          kind: 'reedit';
+          url: string;
+          settings: EditSettings;
+          mediaId: string;
+          altText: string | null;
+      }
+    | { kind: 'raw'; url: string; mediaId: string };
+
+/** Stable fallback so a closed editor doesn't reallocate settings each render. */
+const DEFAULT_EDIT_SETTINGS = defaultSettings();
+
+type Endpoints = {
+    imageStore: (id: string) => string;
+    videoSign: (id: string) => string;
+    videoStore: (id: string) => string;
+    gifStore: (id: string) => string;
+    /** Omitted, the image editor is off and picked images upload straight through. */
+    imageEdit?: {
+        store: (id: string) => string;
+        update: (args: { owner: string; media: string }) => string;
+    };
+};
+
+type Args = {
+    /** Owning record id — a reply id or a conversation id; only used to build endpoint URLs. */
+    ownerId: string;
+    platform: PlatformName;
+    media: MediaView[];
+    onChange: (media: MediaView[]) => void;
+    endpoints: Endpoints;
+    /** Wording for the one-video-or-images error toast: 'reply' | 'message'. Default 'reply'. */
+    subject?: string;
+    /**
+     * Hard cap on how many attachments this surface accepts. Omitted, the surface
+     * is unlimited (the reply box). DM composers pass `1` so the hook — the only
+     * place that sees every file-selection, paste and drop — enforces the limit
+     * rather than trusting callers to hide the attach button in time.
+     */
+    maxMedia?: number;
+};
+
+/**
+ * The render-ready pieces the host box composes into its own layout: a hidden
+ * file input, the attach trigger, the media-chips strip (null when empty), the
+ * single image-editor instance (null when editing is disabled), and the
+ * drag-drop handlers.
+ */
+type Attachments = {
+    isUploading: boolean;
+    hasMedia: boolean;
+    openFilePicker: () => void;
+    fileInput: ReactNode;
+    chips: ReactNode | null;
+    editor: ReactNode;
+    dropHandlers: {
+        onDragOver: (e: React.DragEvent) => void;
+        onDrop: (e: React.DragEvent) => void;
+    };
+    /**
+     * Validate + attach a batch of files. Exposed for surfaces that source files
+     * themselves rather than through the picker or drop handlers — the editor's
+     * paste-to-upload passes its clipboard FileList straight in.
+     */
+    handleAddedFiles: (files: FileList | File[]) => Promise<void>;
+    /** Attach a chosen GIF/sticker/clip; the server downloads and re-hosts it. */
+    attachGif: (item: GifItem) => Promise<void>;
+};
+
+function blobToFile(blob: Blob, baseName: string): File {
+    const type = blob.type || 'image/png';
+    const ext =
+        type === 'image/webp' ? 'webp' : type === 'image/jpeg' ? 'jpg' : 'png';
+
+    return new File([blob], `${baseName}.${ext}`, { type });
+}
+
+/**
+ * Owns a compose surface's media lifecycle and hands back render-ready pieces,
+ * so the host box lays out the attach button, chips and footer however it likes.
+ * Endpoints are caller-supplied, so this serves both the reply box and the DM
+ * composer; all upload logic is the composer's `useMediaUploads`.
+ */
+export function useAttachments({
+    ownerId,
+    platform,
+    media,
+    onChange,
+    endpoints,
+    subject = 'reply',
+    maxMedia,
+}: Args): Attachments {
+    const { shell } = usePage().props;
+    // Validate video against this surface's own platform limits, not every platform.
+    const videoLimits = shell.limits.filter((l) => l.platform === platform);
+
+    const imageEdit = endpoints.imageEdit;
+    const canEditImages = imageEdit !== undefined;
+
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+    // --- Image-edit state machine (mirrors composer.tsx) -------------------
+
+    const [editing, setEditing] = useState<Editing | null>(null);
+    const editingRef = useRef<Editing | null>(null);
+    editingRef.current = editing;
+
+    // Revoke batch object URLs on unmount.
+    useEffect(
+        () => () => {
+            const e = editingRef.current;
+            if (e?.kind === 'batch') {
+                for (const it of e.items) {
+                    URL.revokeObjectURL(it.url);
+                }
+            }
+        },
+        [],
+    );
+
+    // --- useMediaUploads ---------------------------------------------------
+
+    const {
+        pending,
+        isUploading,
+        handleFiles,
+        dismissPending,
+        cancelPending,
+        trackPending,
+    } = useMediaUploads({
+        // This surface (reply box / DM composer) has no thread segments — every
+        // upload judges the mixing rule against the surface's whole media list.
+        mediaForSegment: () => media,
+        videoLimits,
+        onEnsurePost: async () => ownerId,
+        onAddMedia: (m) => onChange([...media, m]),
+        // This surface (reply box / DM composer) has no thread segments.
+        activeSegmentRef: () => '__head__',
+        endpoints: {
+            imageStore: endpoints.imageStore,
+            videoSign: endpoints.videoSign,
+            videoStore: endpoints.videoStore,
+        },
+    });
+
+    // The server downloads and re-hosts the chosen GIF, so this is a chip +
+    // fetch rather than the local upload flow the other media handlers use.
+    // Unlike the composer, ownerId is always available (no ensure-post step
+    // that can fail), so there is no early-bail guard here.
+    async function attachGif(item: GifItem): Promise<void> {
+        await trackPending(
+            {
+                kind: item.catalog === 'clip' ? 'video' : 'image',
+                previewUrl: item.preview.url,
+            },
+            () =>
+                postGifAttachment(
+                    endpoints.gifStore(ownerId),
+                    item,
+                    // post_media has no reply_id/conversation_id column, so the
+                    // server has no way to know what this surface already holds
+                    // — we tell it. See AttachGifRequest::rules() and the GIF
+                    // controller's $existing query.
+                    media.map((m) => m.id),
+                ),
+        );
+    }
+
+    // --- Image-editor HTTP (inline, mirrors use-image-editor.ts) ----------
+
+    const editHttp = useHttp<{ composed?: File | null }, { media: MediaView }>(
+        {},
+    );
+    const [isSaving, setIsSaving] = useState(false);
+
+    async function applyEditing(
+        composed: Blob,
+        settings: EditSettings,
+        altText: string,
+    ): Promise<void> {
+        if (!editing || !imageEdit) {
+            return;
+        }
+        setIsSaving(true);
+        try {
+            if (editing.kind === 'batch') {
+                editHttp.transform(() => ({
+                    composed: blobToFile(composed, 'image'),
+                    source: blobToFile(
+                        editing.items[editing.index].file,
+                        'source',
+                    ),
+                    settings: JSON.stringify(settings),
+                    alt_text: altText,
+                }));
+                const { media: result } = await editHttp.post(
+                    imageEdit.store(ownerId),
+                    { onNetworkError: () => undefined },
+                );
+                onChange([...media, result]);
+            } else if (editing.kind === 'reedit') {
+                editHttp.transform(() => ({
+                    composed: blobToFile(composed, 'image'),
+                    settings: JSON.stringify(settings),
+                    alt_text: altText,
+                    _method: 'put',
+                }));
+                const { media: result } = await editHttp.post(
+                    imageEdit.update({
+                        owner: ownerId,
+                        media: editing.mediaId,
+                    }),
+                    { onNetworkError: () => undefined },
+                );
+                onChange(
+                    media.map((m) => (m.id === editing.mediaId ? result : m)),
+                );
+            } else {
+                // 'raw': beautify a plain attachment for the first time —
+                // fetch the original blob, upload as new, drop the raw attachment.
+                const rawBlob = await fetch(editing.url).then((r) => r.blob());
+                editHttp.transform(() => ({
+                    composed: blobToFile(composed, 'image'),
+                    source: blobToFile(rawBlob, 'source'),
+                    settings: JSON.stringify(settings),
+                    alt_text: altText,
+                }));
+                const { media: result } = await editHttp.post(
+                    imageEdit.store(ownerId),
+                    { onNetworkError: () => undefined },
+                );
+                onChange([
+                    ...media.filter((m) => m.id !== editing.mediaId),
+                    result,
+                ]);
+            }
+        } catch {
+            toast.error('Could not save the image.');
+            setIsSaving(false);
+
+            return;
+        }
+        setIsSaving(false);
+        endEditingStep();
+    }
+
+    function endEditingStep() {
+        if (editing?.kind === 'batch') {
+            if (editing.index + 1 < editing.items.length) {
+                setEditing({ ...editing, index: editing.index + 1 });
+
+                return;
+            }
+            for (const it of editing.items) {
+                URL.revokeObjectURL(it.url);
+            }
+        }
+        setEditing(null);
+    }
+
+    function cancelEditing() {
+        if (editing?.kind === 'batch') {
+            void handleFiles([editing.items[editing.index].file]);
+        }
+        endEditingStep();
+    }
+
+    function discardEditing() {
+        if (editing?.kind === 'reedit' || editing?.kind === 'raw') {
+            onChange(media.filter((m) => m.id !== editing.mediaId));
+        }
+        endEditingStep();
+    }
+
+    // --- File handling (mirrors handleAddedFiles in composer.tsx) ----------
+
+    async function handleAddedFiles(files: FileList | File[]): Promise<void> {
+        const all = Array.from(files);
+
+        // The native file dialog and drag-drop can both hand over more files than
+        // this surface allows in one go, so the cap lives here rather than in the
+        // caller's button-hiding. `undefined` (the reply box) means unlimited.
+        const remainingSlots =
+            maxMedia === undefined
+                ? Infinity
+                : Math.max(0, maxMedia - media.length);
+
+        if (remainingSlots === 0) {
+            toast.error(
+                `A ${subject} can only include ${maxMedia} attachment${maxMedia === 1 ? '' : 's'}.`,
+            );
+
+            return;
+        }
+
+        // Bluesky publishes a GIF as video and allows only one, unmixed. Block it
+        // up front (same as the one-video rule below) so it never reaches posting.
+        if (platform === 'bluesky' && wouldViolateBlueskyGif(media, all)) {
+            toast.error(
+                'Bluesky supports one animated GIF per post, and it cannot be mixed with other media.',
+            );
+
+            return;
+        }
+
+        const videos = all.filter((f) => f.type.startsWith('video/'));
+        // The paste path supplies raw clipboard batches, so filter to real images
+        // rather than "anything non-video" — otherwise a pasted PDF is queued into
+        // the crop/beautify editor as if it were an image.
+        const images = all.filter((f) => f.type.startsWith('image/'));
+
+        if (wouldMixVideoAndImages(media, all)) {
+            toast.error(
+                `A ${subject} can contain one video or images, not both.`,
+            );
+
+            return;
+        }
+
+        if (videos.length > 0) {
+            void handleFiles(videos.slice(0, remainingSlots));
+
+            return;
+        }
+        if (images.length === 0) {
+            return;
+        }
+        // Respect the surface's cap; `Infinity` (the reply box) keeps every image.
+        const acceptedImages = images.slice(0, remainingSlots);
+        // Without an image-edit endpoint there is nothing to crop/beautify into,
+        // so images take the same straight-to-upload path videos do.
+        if (!canEditImages) {
+            void handleFiles(acceptedImages);
+
+            return;
+        }
+        setEditing({
+            kind: 'batch',
+            items: acceptedImages.map((f) => ({
+                file: f,
+                url: URL.createObjectURL(f),
+            })),
+            index: 0,
+        });
+    }
+
+    function openEditor(mediaId: string) {
+        const m = media.find((x) => x.id === mediaId);
+        // Animated images (GIF, or a GIF-browser WebP) have no editor — the
+        // beautifier would flatten them to a still frame — so they're attach-only,
+        // matching composer.tsx `openImage`.
+        if (!m || m.kind === 'video' || isAttachOnlyImage(m)) {
+            return;
+        }
+        if (m.edit_settings && m.source_url) {
+            setEditing({
+                kind: 'reedit',
+                url: m.source_edit_url ?? m.edit_url,
+                settings: normalizeSettings(m.edit_settings),
+                mediaId: m.id,
+                altText: m.alt_text,
+            });
+        } else {
+            setEditing({ kind: 'raw', url: m.edit_url, mediaId: m.id });
+        }
+    }
+
+    // --- Derived editor props ---------------------------------------------
+
+    const editorSourceUrl =
+        editing?.kind === 'batch'
+            ? editing.items[editing.index].url
+            : (editing?.url ?? null);
+    const editorSettings =
+        editing?.kind === 'reedit' ? editing.settings : DEFAULT_EDIT_SETTINGS;
+    const editorAltText = editing?.kind === 'reedit' ? editing.altText : null;
+    const editorQueue =
+        editing?.kind === 'batch'
+            ? {
+                  thumbnails: editing.items.map((it) => it.url),
+                  index: editing.index,
+              }
+            : undefined;
+
+    const hasVideo = media.some((m) => m.kind === 'video');
+    const hasMedia = media.length > 0 || pending.length > 0;
+
+    function acceptFromInput(files: FileList) {
+        void handleAddedFiles(files).finally(() => {
+            if (fileInputRef.current) {
+                fileInputRef.current.value = '';
+            }
+        });
+    }
+
+    const fileInput = (
+        <input
+            ref={fileInputRef}
+            type="file"
+            accept={hasVideo ? 'image/*' : 'image/*,video/*'}
+            multiple={maxMedia !== 1}
+            hidden
+            onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    acceptFromInput(e.target.files);
+                }
+            }}
+        />
+    );
+
+    const chips = hasMedia ? (
+        <MediaChips
+            media={media}
+            pending={pending}
+            isExcluded={() => false}
+            onToggleExclude={() => {}}
+            onReorder={(ids) =>
+                onChange(
+                    ids
+                        .map((id) => media.find((m) => m.id === id)!)
+                        .filter(Boolean),
+                )
+            }
+            onRemove={(id) => onChange(media.filter((m) => m.id !== id))}
+            onDismissPending={dismissPending}
+            onCancelPending={cancelPending}
+            // No editor to open when the caller supplied no image-edit endpoints.
+            onImageClick={canEditImages ? openEditor : undefined}
+        />
+    ) : null;
+
+    const editor = canEditImages ? (
+        <ImageEditor
+            open={editing !== null}
+            sourceUrl={editorSourceUrl}
+            initialSettings={editorSettings}
+            initialAltText={editorAltText}
+            onApply={applyEditing}
+            onCancel={cancelEditing}
+            onDiscard={discardEditing}
+            variant={editing?.kind === 'batch' ? 'new' : 'existing'}
+            isSaving={isSaving}
+            queue={editorQueue}
+        />
+    ) : null;
+
+    return {
+        isUploading,
+        hasMedia,
+        openFilePicker: () => fileInputRef.current?.click(),
+        fileInput,
+        chips,
+        editor,
+        dropHandlers: {
+            onDragOver: (e) => e.preventDefault(),
+            onDrop: (e) => {
+                e.preventDefault();
+                if (e.dataTransfer.files.length > 0) {
+                    void handleAddedFiles(e.dataTransfer.files);
+                }
+            },
+        },
+        handleAddedFiles,
+        attachGif,
+    };
+}

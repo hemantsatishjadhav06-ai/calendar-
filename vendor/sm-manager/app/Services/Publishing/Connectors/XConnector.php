@@ -1,0 +1,506 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services\Publishing\Connectors;
+
+use App\Dto\Publishing\MediaUploadState;
+use App\Dto\Publishing\PublishContext;
+use App\Dto\Publishing\PublishResult;
+use App\Dto\Repost\RepostContext;
+use App\Enums\ErrorKind;
+use App\Enums\Platform;
+use App\Enums\UsageCategory;
+use App\Models\ConnectedAccount;
+use App\Models\PostMedia;
+use App\Models\PostTarget;
+use App\Services\Media\ImageCompressor;
+use App\Services\Publishing\Connectors\Concerns\MapsHttpErrors;
+use App\Services\Publishing\Contracts\PublishConnector;
+use App\Services\Repost\Contracts\RepostConnector;
+use App\Services\Usage\Concerns\TracksUsage;
+use App\Support\InstanceSettings;
+use App\Support\UsageOperation;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Storage;
+
+class XConnector implements PublishConnector, RepostConnector
+{
+    use MapsHttpErrors, TracksUsage;
+
+    private const string TWEETS_URL = 'https://api.twitter.com/2/tweets';
+
+    // v2 media upload (the v1.1 upload.twitter.com endpoint was deprecated 2025-03-31).
+    // Simple single-request upload is sufficient for images; chunking is only required
+    // for video/large media. Requires the OAuth2 `media.write` scope (see Platform::X).
+    private const string MEDIA_URL = 'https://api.x.com/2/media/upload';
+
+    private const string MEDIA_BASE = 'https://api.x.com/2/media/upload';
+
+    private const int APPEND_CHUNK = 4 * 1024 * 1024;
+
+    private const int GIF_MAX_BYTES = 15 * 1024 * 1024;
+
+    public function __construct(
+        private readonly HttpFactory $http,
+        private readonly ImageCompressor $imageCompressor,
+        private readonly InstanceSettings $settings,
+    ) {}
+
+    public function publish(PublishContext $context): PublishResult
+    {
+        $token = (string) ($context->credentials['access_token'] ?? '');
+        $remoteIds = $context->target->remote_ids ?? [];
+
+        try {
+            foreach ($context->segments as $index => $text) {
+                // Resume: skip segments already posted on a prior attempt.
+                if (isset($remoteIds[$index])) {
+                    continue;
+                }
+
+                // Video/gif/images is resolved per section (not once for the whole
+                // thread): each tweet has its own media, and X's "one type per tweet"
+                // rule applies per tweet, not per post.
+                $sectionMedia = array_slice($context->mediaForSection($index), 0, Platform::X->maxMedia());
+                $videoMedia = array_values(array_filter($sectionMedia, fn (PostMedia $m): bool => $m->isVideo()));
+                $gifMedia = array_values(array_filter(
+                    $sectionMedia,
+                    fn (PostMedia $m): bool => ! $m->isVideo() && $m->mime === 'image/gif',
+                ));
+
+                if ($videoMedia !== []) {
+                    $ready = $this->ensureVideoReady($context, $videoMedia[0], $token);
+                    if (! $ready->isSuccessful()) {
+                        return $ready;
+                    }
+                    $mediaIds = [(string) $ready->remoteIds[0]];
+                } elseif ($gifMedia !== []) {
+                    $ready = $this->ensureGifReady($context, $sectionMedia, $token);
+                    if (! $ready->isSuccessful()) {
+                        return $ready;
+                    }
+                    $mediaIds = [(string) $ready->remoteIds[0]];
+                } elseif ($sectionMedia !== []) {
+                    $mediaIds = $this->uploadMedia($sectionMedia, $token, $context->account);
+                } else {
+                    $mediaIds = [];
+                }
+
+                $hasMedia = $mediaIds !== [];
+
+                // Quote-posting is opt-in per instance (it needs X Enterprise API access),
+                // and quote_tweet_id is mutually exclusive with media on X — so only pull a
+                // quoted status link out of the copy when the instance allows it and this
+                // segment carries no media. (Otherwise the link stays inline as a plain URL.)
+                $quoteTweetId = null;
+                if (! $hasMedia && $this->settings->quoteTweetsEnabled()) {
+                    [$text, $quoteTweetId] = $this->extractQuoteTweet($text);
+                }
+
+                // X rejects an empty `text` field; once media_ids or a quote are attached
+                // text is optional, so omit it entirely for a media-only post
+                // (otherwise the API returns a 400 "Invalid Request").
+                $body = $text === '' ? [] : ['text' => $text];
+
+                if ($hasMedia) {
+                    $body['media'] = ['media_ids' => $mediaIds];
+                }
+
+                if ($quoteTweetId !== null) {
+                    $body['quote_tweet_id'] = $quoteTweetId;
+                }
+
+                $previous = $remoteIds[$index - 1] ?? null;
+
+                if ($previous !== null) {
+                    $body['reply'] = ['in_reply_to_tweet_id' => $previous];
+                }
+
+                $response = $this->http
+                    ->withToken($token)
+                    ->acceptJson()
+                    ->post(self::TWEETS_URL, $body);
+
+                $this->meter(
+                    UsageCategory::Publish,
+                    $this->postOperation($text),
+                    $context->account,
+                    $response,
+                );
+
+                if ($response->failed()) {
+                    return $this->mapFailure($response);
+                }
+
+                $remoteIds[$index] = (string) $response->json('data.id');
+
+                // Persist this segment's id BEFORE sending the next one so a mid-thread
+                // death resumes (rather than re-posts) the already-published segments (spec §4.3).
+                $context->target->forceFill([
+                    'remote_id' => $remoteIds[0],
+                    'remote_ids' => array_values($remoteIds),
+                ])->save();
+            }
+        } catch (XRequestFailed $e) {
+            return $this->mapFailure($e->response);
+        } catch (ConnectionException $e) {
+            return PublishResult::failure(ErrorKind::Network, $e->getMessage());
+        }
+
+        return PublishResult::success(array_values($remoteIds));
+    }
+
+    public function repost(RepostContext $context): PublishResult
+    {
+        $token = (string) ($context->credentials['access_token'] ?? '');
+
+        if ($token === '') {
+            return PublishResult::failure(ErrorKind::AuthExpired, 'X access token unavailable; reconnect the account.');
+        }
+
+        $userId = $context->account->remote_account_id;
+        $tweetId = (string) $context->target->remote_id;
+
+        try {
+            $response = $this->http
+                ->withToken($token)
+                ->acceptJson()
+                ->post("https://api.twitter.com/2/users/{$userId}/retweets", ['tweet_id' => $tweetId]);
+        } catch (ConnectionException $e) {
+            return PublishResult::failure(ErrorKind::Network, $e->getMessage());
+        }
+
+        $this->meter(UsageCategory::Publish, UsageOperation::POST, $context->account, $response);
+
+        if ($response->failed()) {
+            return $this->mapFailure($response);
+        }
+
+        // The retweets endpoint returns {data:{retweeted:true}} with no new id; the
+        // source tweet id is what a future un-retweet (DELETE .../retweets/:id) needs.
+        return PublishResult::success([$tweetId]);
+    }
+
+    /**
+     * Pull a quoted-post target out of a tweet's copy.
+     *
+     * A bare status link never renders as a quote on its own — X only shows a quote
+     * card when the request carries a separate `quote_tweet_id`. Mirroring X's native
+     * behaviour, the LAST status link in the text becomes the quote and is stripped
+     * from the visible copy so the reader sees a card, not a redundant t.co link.
+     *
+     * @return array{0: string, 1: ?string} the copy with the quoted link removed, and the quoted tweet id (or null)
+     */
+    private function extractQuoteTweet(string $text): array
+    {
+        $matched = preg_match_all(
+            '~https?://(?:www\.|mobile\.)?(?:twitter|x)\.com/\w+/status(?:es)?/(\d{1,19})(?:[/?#]\S*)?~i',
+            $text,
+            $matches,
+            PREG_OFFSET_CAPTURE,
+        );
+
+        if ($matched === 0 || $matched === false) {
+            return [$text, null];
+        }
+
+        $lastUrl = end($matches[0]);
+        $lastId = end($matches[1]);
+
+        if ($lastUrl === false || $lastId === false) {
+            return [$text, null];
+        }
+
+        [$url, $offset] = $lastUrl;
+        $quoteTweetId = $lastId[0];
+
+        // Remove the quoted link, then collapse the whitespace it left behind.
+        $stripped = substr_replace($text, '', $offset, strlen($url));
+        $stripped = trim((string) preg_replace('/\s{2,}/', ' ', $stripped));
+
+        return [$stripped, $quoteTweetId];
+    }
+
+    private function postOperation(string $text): string
+    {
+        return preg_match('~https?://\S+~i', $text) === 1
+            ? UsageOperation::POST_WITH_URL
+            : UsageOperation::POST;
+    }
+
+    public function delete(PostTarget $target, array $credentials): void
+    {
+        $token = (string) ($credentials['access_token'] ?? '');
+
+        foreach ($target->remote_ids ?? array_filter([$target->remote_id]) as $id) {
+            $response = $this->http->withToken($token)->delete(self::TWEETS_URL.'/'.$id);
+
+            // A 404 means the tweet is already gone — throwUnlessDeleteAccepted treats it as done.
+            $this->meter(UsageCategory::Publish, UsageOperation::DELETE, $target->account, $response, succeeded: $response->successful() || $response->status() === 404);
+
+            $this->throwUnlessDeleteAccepted($response);
+        }
+    }
+
+    /**
+     * Upload (once) and poll the async transcode. Returns a success PublishResult whose
+     * remoteIds[0] is the ready media_id, or a MediaProcessing failure to retry later.
+     */
+    private function ensureVideoReady(PublishContext $context, PostMedia $media, string $token): PublishResult
+    {
+        return $this->ensureChunkedMediaReady($context, $media, $token, 'video/mp4', 'tweet_video', 'video');
+    }
+
+    /**
+     * @param  list<PostMedia>  $sectionMedia  the section's full media list, so a gif
+     *                                         mixed with other media in the same tweet is rejected
+     */
+    private function ensureGifReady(PublishContext $context, array $sectionMedia, string $token): PublishResult
+    {
+        $gifMedia = array_values(array_filter(
+            $sectionMedia,
+            fn (PostMedia $m): bool => ! $m->isVideo() && $m->mime === 'image/gif',
+        ));
+
+        if (count($sectionMedia) > 1 || count($gifMedia) > 1) {
+            return PublishResult::failure(
+                ErrorKind::Validation,
+                'X supports one GIF per post, and a GIF cannot be mixed with other media.',
+            );
+        }
+
+        $item = $gifMedia[0];
+        $size = (int) Storage::disk($item->disk)->size($item->path);
+
+        if ($size > self::GIF_MAX_BYTES) {
+            return PublishResult::failure(
+                ErrorKind::Validation,
+                'X GIF uploads must be 15 MB or smaller.',
+            );
+        }
+
+        return $this->ensureChunkedMediaReady($context, $item, $token, 'image/gif', 'tweet_gif', 'GIF');
+    }
+
+    /**
+     * Upload (once) and poll the async media processing state.
+     */
+    private function ensureChunkedMediaReady(
+        PublishContext $context,
+        PostMedia $media,
+        string $token,
+        string $mediaType,
+        string $mediaCategory,
+        string $label,
+    ): PublishResult {
+        $state = new MediaUploadState($context->target->media_upload_state);
+        $mediaId = $state->remoteRef($media->id);
+
+        try {
+            if ($mediaId === null) {
+                $mediaId = $this->uploadChunks($media, $token, $mediaType, $mediaCategory, $context->account);
+                $state->markUploaded($media->id, $mediaId);
+                $context->target->forceFill(['media_upload_state' => $state->toArray()])->save();
+            }
+
+            $status = $this->http->withToken($token)->acceptJson()
+                ->get(self::MEDIA_BASE, ['media_id' => $mediaId]);
+
+            $this->meter(UsageCategory::Publish, UsageOperation::MEDIA_STATUS_POLL, $context->account, $status);
+
+            if ($status->failed()) {
+                $kind = $this->classifyStatus($status->status());
+                if (in_array($kind, [ErrorKind::ServerError, ErrorKind::RateLimited], true)) {
+                    // A transient failure to CHECK status is not a publish failure — treat it as
+                    // "still processing, try again" so it uses the media-poll budget, not the
+                    // 5-attempt publish-failure budget.
+                    return PublishResult::failure(
+                        ErrorKind::MediaProcessing,
+                        "Could not check {$label} processing status; will retry.",
+                        retryAfter: $this->retryAfter($status) ?? 6,
+                    );
+                }
+
+                // Non-transient (auth/validation/etc.) — surface as a real failure.
+                return $this->mapFailure($status);
+            }
+
+            $info = (array) $status->json('data.processing_info', []);
+            $stateName = (string) ($info['state'] ?? 'succeeded');
+
+            if ($stateName === 'failed') {
+                // X puts the real reason (e.g. "The aspect ratio of the video you tried to upload
+                // was too large.") in processing_info.error — surface it instead of a generic string.
+                $reason = trim((string) ($info['error']['message'] ?? ''));
+
+                // A failed processing state is permanent (bad codec, aspect ratio, corrupt file) —
+                // re-uploading the same bytes fails identically. Use a terminal Validation kind so
+                // the publish job stops retrying instead of burning attempts on a doomed upload.
+                return PublishResult::failure(
+                    ErrorKind::Validation,
+                    $reason !== '' ? "X rejected the {$label}: {$reason}" : "X failed to process the {$label}.",
+                );
+            }
+
+            if ($stateName !== 'succeeded') {
+                return PublishResult::failure(
+                    ErrorKind::MediaProcessing,
+                    ucfirst($label).' is still processing on X.',
+                    retryAfter: (int) ($info['check_after_secs'] ?? 5),
+                );
+            }
+
+            return PublishResult::success([(string) $mediaId]);
+        } catch (XRequestFailed $e) {
+            return $this->mapFailure($e->response);
+        }
+    }
+
+    private function uploadChunks(PostMedia $media, string $token, string $mediaType, string $mediaCategory, ConnectedAccount $account): string
+    {
+        $disk = Storage::disk($media->disk);
+        $total = (int) $disk->size($media->path);
+
+        $init = $this->http->withToken($token)->acceptJson()
+            ->post(self::MEDIA_BASE.'/initialize', [
+                'media_type' => $mediaType,
+                'total_bytes' => $total,
+                'media_category' => $mediaCategory,
+            ]);
+        $this->meter(UsageCategory::Publish, UsageOperation::MEDIA_UPLOAD, $account, $init);
+        if ($init->failed()) {
+            throw new XRequestFailed($init);
+        }
+        $mediaId = (string) $init->json('data.id');
+
+        // Stream the file from disk, holding at most one 4 MB segment in memory.
+        $stream = $disk->readStream($media->path);
+        try {
+            $segmentIndex = 0;
+            while (! feof($stream)) {
+                $segment = fread($stream, self::APPEND_CHUNK);
+                if ($segment === false || $segment === '') {
+                    break;
+                }
+                $append = $this->http->withToken($token)->asMultipart()
+                    ->attach('media', $segment, 'chunk')
+                    ->post(self::MEDIA_BASE.'/'.$mediaId.'/append', ['segment_index' => $segmentIndex]);
+                $this->meter(UsageCategory::Publish, UsageOperation::MEDIA_UPLOAD, $account, $append);
+                if ($append->failed()) {
+                    throw new XRequestFailed($append);
+                }
+                $segmentIndex++;
+            }
+        } finally {
+            fclose($stream);
+        }
+
+        $finalize = $this->http->withToken($token)->acceptJson()
+            ->post(self::MEDIA_BASE.'/'.$mediaId.'/finalize');
+        $this->meter(UsageCategory::Publish, UsageOperation::MEDIA_UPLOAD, $account, $finalize);
+        if ($finalize->failed()) {
+            throw new XRequestFailed($finalize);
+        }
+
+        return $mediaId;
+    }
+
+    /**
+     * @param  list<PostMedia>  $media
+     * @return list<string>
+     */
+    private function uploadMedia(array $media, string $token, ConnectedAccount $account): array
+    {
+        $ids = [];
+
+        foreach ($media as $item) {
+            $bytes = (string) Storage::disk($item->disk)->get($item->path);
+            $compressed = $this->imageCompressor->compressToFit($bytes, Platform::X->maxMediaBytes(), $item->mime, Platform::X->allowedMime());
+            $response = $this->http
+                ->withToken($token)
+                ->asMultipart()
+                ->attach('media', $compressed->bytes, 'upload')
+                ->post(self::MEDIA_URL, ['media_category' => 'tweet_image']);
+
+            $this->meter(UsageCategory::Publish, UsageOperation::MEDIA_UPLOAD, $account, $response);
+
+            if ($response->failed()) {
+                throw new XRequestFailed($response);
+            }
+
+            // v2 returns the numeric media id under data.id (v1.1 used media_id_string).
+            $ids[] = (string) $response->json('data.id');
+        }
+
+        return $ids;
+    }
+
+    private function mapFailure(Response $response): PublishResult
+    {
+        $kind = $this->isDuplicateContent($response)
+            ? ErrorKind::DuplicateContent
+            : $this->classifyStatus($response->status());
+
+        $message = (string) ($response->json('title') ?? $response->json('detail') ?? 'X request failed');
+
+        return PublishResult::failure($kind, $message, $response->status(), $this->excerpt($response), $this->retryAfter($response));
+    }
+
+    /**
+     * X returns HTTP 403 for duplicate posts. Detect them via the response body so the
+     * job treats them as a terminal DuplicateContent failure rather than a retryable one.
+     */
+    private function isDuplicateContent(Response $response): bool
+    {
+        if ($response->status() !== 403) {
+            return false;
+        }
+
+        $haystacks = array_filter([
+            (string) $response->json('detail'),
+            (string) $response->json('title'),
+        ]);
+
+        /** @var list<array<string, mixed>> $errors */
+        $errors = (array) ($response->json('errors') ?? []);
+
+        foreach ($errors as $error) {
+            if (isset($error['message'])) {
+                $haystacks[] = (string) $error['message'];
+            }
+
+            if ((int) ($error['code'] ?? 0) === 187) {
+                return true;
+            }
+        }
+
+        if ((int) ($response->json('code') ?? 0) === 187) {
+            return true;
+        }
+
+        foreach ($haystacks as $haystack) {
+            if (mb_stripos($haystack, 'duplicate') !== false) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+}
+
+/**
+ * Internal signal so a failed media upload short-circuits to the shared HTTP-error
+ * mapping without pushing an empty media id. Not part of the public connector surface.
+ *
+ * @internal
+ */
+final class XRequestFailed extends \RuntimeException
+{
+    public function __construct(public readonly Response $response)
+    {
+        parent::__construct('X request failed.');
+    }
+}
