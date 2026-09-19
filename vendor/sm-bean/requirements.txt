@@ -11,6 +11,12 @@ bcrypt>=4.2,<5.0
 # Background tasks
 django-background-tasks>=1.2,<2.0
 
+# Cache — Django's RedisCache backend (settings.CACHES, used by the default
+# cache and thus django-ratelimit via RATELIMIT_USE_CACHE) does `import redis`
+# at first cache access. Without redis-py, the login POST (rate-limited) 500s
+# with ModuleNotFoundError even though the process boots and /health/ is green.
+redis>=5.0,<6.0
+
 # Frontend
 django-tailwind[reload]>=3.8,<4.0
 django-htmx>=1.19,<2.0
